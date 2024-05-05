@@ -39,14 +39,24 @@ class MainWindow(QMainWindow):
     def __init__(self, args: argparse.Namespace) -> None:
         super().__init__()
 
-        info: dict[str, Any] = Util.get_project_info()
-
         self._args = args
 
         self._pdf_filename: Optional[str] = None
         self._pdf: Optional[PDFFile] = None
 
         self._set_window_title()
+        self.setStatusBar(QStatusBar(self))
+
+        self._create_menu()
+        self._create_viewport()
+
+        self.resize(500, 500)
+
+        if self._args.file:
+            self._open_pdf(self._args.file)
+
+    def _create_menu(self) -> None:
+        info: dict[str, Any] = Util.get_project_info()
 
         style = self.style()
         assert style is not None
@@ -89,8 +99,7 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self._show_about)
         about_menu.addAction(about_action)
 
-        self.setStatusBar(QStatusBar(self))
-
+    def _create_viewport(self) -> None:
         self._page_image = QImage()
         self._page_view = QLabel(self)
 
@@ -102,11 +111,6 @@ class MainWindow(QMainWindow):
         self._page_view.installEventFilter(self)
 
         self.setCentralWidget(self._page_view)
-
-        self.resize(500, 500)
-
-        if self._args.file:
-            self._open_pdf(self._args.file)
 
     def _set_window_title(self) -> None:
         info: dict[str, Any] = Util.get_project_info()
