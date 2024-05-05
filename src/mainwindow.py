@@ -21,11 +21,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import argparse
-from typing import Any
+import sys
+from typing import Any, Optional
 
 from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import QAction, QMainWindow, QMessageBox, QStatusBar, QStyle
+from PyQt5.QtWidgets import QAction, QFileDialog, QMainWindow, QMessageBox, QStatusBar, QStyle
 
+from pdffile import PDFFile
 from util import Util
 
 
@@ -36,18 +38,39 @@ class MainWindow(QMainWindow):
     def __init__(self, args: argparse.Namespace) -> None:
         super().__init__()
 
+        info: dict[str, Any] = Util.get_project_info()
+
         self._args = args
 
-        info: dict[str, Any] = Util.get_project_info()
-        nameversion: str = f"{info['name']} {info['version']}"
+        self._pdf_filename: Optional[str] = None
+        self._pdf: Optional[PDFFile] = None
 
-        self.setWindowTitle(nameversion)
+        self._set_window_title()
+
+        style = self.style()
+        assert style is not None
 
         menu = self.menuBar()
         assert menu is not None
 
         file_menu = menu.addMenu("&File")
         assert file_menu is not None
+
+        open_action = QAction(style.standardIcon(QStyle.SP_DirOpenIcon),  # type: ignore[attr-defined]
+                              "&Open PDF", self)
+        open_action.setShortcuts(QKeySequence.Open)
+        open_action.setStatusTip("Open a new PDF file")
+        open_action.triggered.connect(self._open_pdf_file)
+        file_menu.addAction(open_action)
+
+        close_action = QAction(style.standardIcon(QStyle.SP_DirClosedIcon),  # type: ignore[attr-defined]
+                               "&Close PDF", self)
+        close_action.setShortcuts(QKeySequence.Close)
+        close_action.setStatusTip("Close the currently opened PDF file")
+        close_action.triggered.connect(self._close_pdf)
+        file_menu.addAction(close_action)
+
+        file_menu.addSeparator()
 
         exit_action = QAction("&Quit", self)
         exit_action.setShortcuts(QKeySequence.Quit)
@@ -57,9 +80,6 @@ class MainWindow(QMainWindow):
 
         about_menu = menu.addMenu("&About")
         assert about_menu is not None
-
-        style = self.style()
-        assert style is not None
 
         about_action = QAction(style.standardIcon(QStyle.SP_FileDialogInfoView),  # type: ignore[attr-defined]
                                f"&About {info['name']}", self)
@@ -72,6 +92,33 @@ class MainWindow(QMainWindow):
 
         self.resize(500, 500)
 
+        if self._args.file:
+            self._open_pdf(self._args.file)
+
+    def _set_window_title(self) -> None:
+        info: dict[str, Any] = Util.get_project_info()
+        title: str = f"{info['name']} {info['version']}"
+
+        if self._pdf_filename:
+            title += f" -- {self._pdf_filename}"
+
+        self.setWindowTitle(title)
+
+    def _show_error(self, error: str, where: Optional[str] = None) -> None:
+        message = error
+        if where:
+            message = where + ": " + message
+
+        if self.isHidden():
+            print(message, file=sys.stderr)
+            return
+
+        dlg = QMessageBox(self)
+        dlg.setIcon(QMessageBox.Critical)
+        dlg.setWindowTitle("Error")
+        dlg.setText(message)
+        dlg.exec()
+
     def _close_self(self) -> None:
         self.close()
 
@@ -82,3 +129,28 @@ class MainWindow(QMainWindow):
         dlg.setWindowTitle(f"About {info['name']}")
         dlg.setText(Util.get_version_string())
         dlg.exec()
+
+    def _open_pdf(self, filename) -> None:
+        self._close_pdf()
+
+        try:
+            self._pdf = PDFFile(filename)
+        except (FileNotFoundError, ValueError) as err:
+            self._show_error(str(err), "Can't open PDF")
+            return
+
+        self._pdf_filename = filename
+        self._set_window_title()
+
+    def _close_pdf(self) -> None:
+        self._pdf = None
+        self._pdf_filename = None
+
+        self._set_window_title()
+
+    def _open_pdf_file(self) -> None:
+        filename, _ = QFileDialog.getOpenFileName(self, "Open PDF", filter="PDF files (*.pdf)")
+        if not filename or filename == '':
+            return
+
+        self._open_pdf(filename)
