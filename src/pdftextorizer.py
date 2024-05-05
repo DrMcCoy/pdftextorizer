@@ -23,6 +23,9 @@
 import argparse
 from typing import Any
 
+from PyQt5.QtWidgets import QApplication
+
+from mainwindow import MainWindow
 from util import Util
 
 
@@ -32,19 +35,7 @@ class PDFTextorizer:  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def _print_version() -> None:
-        """! Print version information.
-        """
-
-        info: dict[str, Any] = Util.get_project_info()
-
-        # Print program version information
-        print(f"{info['name']} {info['version']}")
-        print(f"{info['url']['homepage']}")
-        print()
-        print(f"Copyright (c) {info['years']} {', '.join(info['authors'])}")
-        print()
-        print("This is free software; see the source for copying conditions.  There is NO")
-        print("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.")
+        print(Util.get_version_string())
 
     @staticmethod
     def _parse_args() -> argparse.Namespace:
@@ -76,7 +67,14 @@ class PDFTextorizer:  # pylint: disable=too-few-public-methods
     def run(self) -> None:
         """! Run the main PDF Textorizer application.
         """
-        PDFTextorizer._parse_args()
+        args: argparse.Namespace = PDFTextorizer._parse_args()
+
+        app = QApplication([])
+
+        window = MainWindow(args)
+        window.show()
+
+        app.exec()
 
 
 def main() -> None:

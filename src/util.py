@@ -59,3 +59,21 @@ class Util:  # pylint: disable=too-few-public-methods
             info["authors"].append(f"{parsed[0]} <{parsed[1]}>")
 
         return info
+
+    @staticmethod
+    def get_version_string() -> str:
+        """! Get formated version information.
+        """
+
+        info: dict[str, Any] = Util.get_project_info()
+
+        version_string = ""
+        version_string += f"{info['name']} {info['version']}\n"
+        version_string += f"{info['url']['homepage']}\n"
+        version_string += "\n"
+        version_string += f"Copyright (c) {info['years']} {', '.join(info['authors'])}\n"
+        version_string += "\n"
+        version_string += "This is free software; see the source for copying conditions.  There is NO\n"
+        version_string += "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+
+        return version_string
