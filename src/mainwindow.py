@@ -26,7 +26,8 @@ from typing import Any, Optional
 
 from PyQt5.QtCore import QEvent, Qt
 from PyQt5.QtGui import QImage, QKeySequence, QPalette, QPixmap
-from PyQt5.QtWidgets import QAction, QFileDialog, QLabel, QMainWindow, QMessageBox, QSizePolicy, QStatusBar, QStyle
+from PyQt5.QtWidgets import (QAction, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox,
+                             QPushButton, QSizePolicy, QStatusBar, QStyle, QVBoxLayout, QWidget)
 
 from pdffile import PDFFile
 from util import Util
@@ -41,6 +42,9 @@ class MainWindow(QMainWindow):
 
         self._args = args
 
+        self._current_page: int = 0
+        self._page_image = QImage()
+
         self._pdf_filename: Optional[str] = None
         self._pdf: Optional[PDFFile] = None
 
@@ -48,9 +52,10 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar(self))
 
         self._create_menu()
+        self._create_dock()
         self._create_viewport()
 
-        self.resize(500, 500)
+        self.resize(1200, 800)
 
         if self._args.file:
             self._open_pdf(self._args.file)
@@ -99,6 +104,97 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self._show_about)
         about_menu.addAction(about_action)
 
+    def _create_dock(self) -> None:  # pylint: disable=too-many-statements
+        style = self.style()
+        assert style is not None
+
+        dock = QDockWidget("", self)
+        dock.setAllowedAreas(Qt.RightDockWidgetArea)  # type: ignore[attr-defined]
+        dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
+        dock.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        dock.setTitleBarWidget(QWidget(None))
+        dock.setMinimumSize(200, 1)
+
+        self._page_label = QLabel()
+        self._page_label.setText("")
+        self._page_label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        self._page_label.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+
+        page_label_layout = QVBoxLayout()
+        page_label_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        page_label_layout.addWidget(self._page_label)
+
+        page_label_frame = QFrame()
+        page_label_frame.setLayout(page_label_layout)
+        page_label_frame.setFrameStyle(QFrame.Panel | QFrame.Sunken)
+        page_label_frame.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        page_label_frame.setLineWidth(2)
+        page_label_frame.setMinimumWidth(80)
+
+        dock_layout = QVBoxLayout()
+        dock_layout.setSpacing(0)
+        dock_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+
+        dock_frame = QFrame()
+        dock_frame.setFrameStyle(QFrame.Box | QFrame.Sunken)
+        dock_frame.setLineWidth(1)
+        dock_frame.setContentsMargins(2, 0, 0, 0)
+        dock_frame.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+
+        dock_frame.setLayout(dock_layout)
+
+        dock.setWidget(dock_frame)
+
+        pages_layout = QHBoxLayout()
+        pages_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        pages_layout.setSpacing(0)
+        pages_layout.addWidget(page_label_frame)
+
+        pages = QWidget()
+        pages.setLayout(pages_layout)
+
+        dock_layout.addWidget(pages)
+
+        page_button_layout = QHBoxLayout()
+        page_button_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        page_button_layout.setSpacing(5)
+
+        first_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSkipBackward),  # type: ignore[attr-defined]
+                                        "", parent=self)
+        first_page_button.setStatusTip("First page")
+        first_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        first_page_button.clicked.connect(self._first_page)
+        page_button_layout.addWidget(first_page_button)
+
+        prev_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSeekBackward),  # type: ignore[attr-defined]
+                                       "", parent=self)
+        prev_page_button.setStatusTip("Previous page")
+        prev_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        prev_page_button.clicked.connect(self._previous_page)
+        page_button_layout.addWidget(prev_page_button)
+
+        next_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSeekForward),  # type: ignore[attr-defined]
+                                       "", parent=self)
+        next_page_button.setStatusTip("Next page")
+        next_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        next_page_button.clicked.connect(self._next_page)
+        page_button_layout.addWidget(next_page_button)
+
+        last_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSkipForward),  # type: ignore[attr-defined]
+                                       "", parent=self)
+        last_page_button.setStatusTip("Last page")
+        last_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        last_page_button.clicked.connect(self._last_page)
+        page_button_layout.addWidget(last_page_button)
+
+        page_buttons = QWidget()
+        page_buttons.setLayout(page_button_layout)
+
+        dock_layout.addWidget(page_buttons)
+
+        self.addDockWidget(Qt.RightDockWidgetArea, dock, Qt.Vertical)  # type: ignore[attr-defined]
+        self._update_page_label()
+
     def _create_viewport(self) -> None:
         self._page_image = QImage()
         self._page_view = QLabel(self)
@@ -136,6 +232,29 @@ class MainWindow(QMainWindow):
         dlg.setText(message)
         dlg.exec()
 
+    def _update_page(self) -> None:
+        if not self._pdf:
+            self._page_view.setPixmap(QPixmap())
+            return
+
+        self._page_image = self._pdf.render_page(self._current_page) or QImage()
+
+        width = self._page_view.width()
+        height = self._page_view.height()
+        aspect_ratio_mode = Qt.KeepAspectRatio  # type: ignore[attr-defined]
+        transform_mode = Qt.SmoothTransformation  # type: ignore[attr-defined]
+
+        self._page_view.setPixmap(QPixmap.fromImage(self._page_image).scaled(width, height,
+                                                                             aspectRatioMode=aspect_ratio_mode,
+                                                                             transformMode=transform_mode))
+
+    def _update_page_label(self) -> None:
+        if not self._pdf:
+            self._page_label.setText("? / ?")
+            return
+
+        self._page_label.setText(f"{self._current_page + 1} / {self._pdf.page_count}")
+
     def _close_self(self) -> None:
         self.close()
 
@@ -152,6 +271,9 @@ class MainWindow(QMainWindow):
 
         try:
             self._pdf = PDFFile(filename)
+            if self._pdf.page_count == 0:
+                raise ValueError("PDF has no pages")
+
         except (FileNotFoundError, ValueError) as err:
             self._show_error(str(err), "Can't open PDF")
             return
@@ -159,23 +281,19 @@ class MainWindow(QMainWindow):
         self._pdf_filename = filename
         self._set_window_title()
 
-        self._page_image = self._pdf.render_page(0) or QImage()
-
-        width = self._page_view.width()
-        height = self._page_view.height()
-        aspect_ratio_mode = Qt.KeepAspectRatio  # type: ignore[attr-defined]
-        transform_mode = Qt.SmoothTransformation  # type: ignore[attr-defined]
-
-        self._page_view.setPixmap(QPixmap.fromImage(self._page_image).scaled(width, height,
-                                                                             aspectRatioMode=aspect_ratio_mode,
-                                                                             transformMode=transform_mode))
+        self._current_page = 0
+        self._update_page_label()
+        self._update_page()
 
     def _close_pdf(self) -> None:
         self._pdf = None
         self._pdf_filename = None
 
         self._set_window_title()
-        self._page_view.setPixmap(QPixmap())
+
+        self._current_page = 0
+        self._update_page_label()
+        self._update_page()
 
     def _open_pdf_file(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(self, "Open PDF", filter="PDF files (*.pdf)")
@@ -183,6 +301,44 @@ class MainWindow(QMainWindow):
             return
 
         self._open_pdf(filename)
+
+    def _first_page(self) -> None:
+        if not self._pdf:
+            return
+
+        self._current_page = 0
+        self._update_page_label()
+        self._update_page()
+
+    def _previous_page(self) -> None:
+        if not self._pdf:
+            return
+
+        if self._current_page == 0:
+            return
+
+        self._current_page -= 1
+        self._update_page_label()
+        self._update_page()
+
+    def _next_page(self) -> None:
+        if not self._pdf:
+            return
+
+        if self._current_page >= (self._pdf.page_count - 1):
+            return
+
+        self._current_page += 1
+        self._update_page_label()
+        self._update_page()
+
+    def _last_page(self) -> None:
+        if not self._pdf:
+            return
+
+        self._current_page = self._pdf.page_count - 1
+        self._update_page_label()
+        self._update_page()
 
     def eventFilter(self, widget, event):  # pylint: disable=invalid-name
         """! Special event handling for the main window.
