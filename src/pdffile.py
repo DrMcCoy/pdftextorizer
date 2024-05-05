@@ -23,6 +23,7 @@
 from typing import Optional
 
 import fitz
+from PyQt5.QtGui import QImage
 
 from multi_column import column_boxes
 
@@ -58,6 +59,20 @@ class PDFFile:
         """
 
         self._regions.pop(page)
+
+    def render_page(self, page: int) -> Optional[QImage]:
+        """! Render a page into an image.
+
+        @param page  The page to render.
+
+        @return An image of the rendered page or None if the page is out of bounds.
+        """
+
+        if page >= self.page_count:
+            return None
+
+        pix = self._doc.load_page(page).get_pixmap(alpha=False)
+        return QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
 
     def get_regions(self, page: int, top_margin: int = 0, bottom_margin: int = 0,  # pylint: disable=too-many-arguments
                     left_margin: int = 0, right_margin: int = 0,

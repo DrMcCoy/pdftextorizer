@@ -24,8 +24,9 @@ import argparse
 import sys
 from typing import Any, Optional
 
-from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import QAction, QFileDialog, QMainWindow, QMessageBox, QStatusBar, QStyle
+from PyQt5.QtCore import QEvent, Qt
+from PyQt5.QtGui import QImage, QKeySequence, QPalette, QPixmap
+from PyQt5.QtWidgets import QAction, QFileDialog, QLabel, QMainWindow, QMessageBox, QSizePolicy, QStatusBar, QStyle
 
 from pdffile import PDFFile
 from util import Util
@@ -90,6 +91,18 @@ class MainWindow(QMainWindow):
 
         self.setStatusBar(QStatusBar(self))
 
+        self._page_image = QImage()
+        self._page_view = QLabel(self)
+
+        self._page_view.setBackgroundRole(QPalette.Base)
+        self._page_view.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self._page_view.setScaledContents(False)
+        self._page_view.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+
+        self._page_view.installEventFilter(self)
+
+        self.setCentralWidget(self._page_view)
+
         self.resize(500, 500)
 
         if self._args.file:
@@ -142,11 +155,23 @@ class MainWindow(QMainWindow):
         self._pdf_filename = filename
         self._set_window_title()
 
+        self._page_image = self._pdf.render_page(0) or QImage()
+
+        width = self._page_view.width()
+        height = self._page_view.height()
+        aspect_ratio_mode = Qt.KeepAspectRatio  # type: ignore[attr-defined]
+        transform_mode = Qt.SmoothTransformation  # type: ignore[attr-defined]
+
+        self._page_view.setPixmap(QPixmap.fromImage(self._page_image).scaled(width, height,
+                                                                             aspectRatioMode=aspect_ratio_mode,
+                                                                             transformMode=transform_mode))
+
     def _close_pdf(self) -> None:
         self._pdf = None
         self._pdf_filename = None
 
         self._set_window_title()
+        self._page_view.setPixmap(QPixmap())
 
     def _open_pdf_file(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(self, "Open PDF", filter="PDF files (*.pdf)")
@@ -154,3 +179,19 @@ class MainWindow(QMainWindow):
             return
 
         self._open_pdf(filename)
+
+    def eventFilter(self, widget, event):  # pylint: disable=invalid-name
+        """! Special event handling for the main window.
+        """
+
+        if event.type() == QEvent.Resize and widget is self._page_view:
+            width = self._page_view.width()
+            height = self._page_view.height()
+            aspect_ratio_mode = Qt.KeepAspectRatio  # type: ignore[attr-defined]
+            transform_mode = Qt.SmoothTransformation  # type: ignore[attr-defined]
+
+            self._page_view.setPixmap(QPixmap.fromImage(self._page_image).scaled(width, height,
+                                                                                 aspectRatioMode=aspect_ratio_mode,
+                                                                                 transformMode=transform_mode))
+            return True
+        return super().eventFilter(widget, event)
