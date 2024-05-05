@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools", "wheel", "setuptools-git-versioning"]
+build-backend = "setuptools.build_meta:__legacy__"
+
+[project]
+name = "pdftextorizer"
+description = "Interactively extract text from multi-column PDFs"
+authors = [
+	{ name = 'Sven "DrMcCoy" Hesse', email = "drmccoy@drmccoy.de" }
+]
+readme = "README.md"
+license = { file = "COPYING" }
+classifiers = [
+	"Private :: Do No Upload",
+	"License :: OSI Approved :: GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)"
+]
+keywords = [ "pdf", "extract", "gui" ]
+requires-python = ">=3.12"
+dependencies = [
+	"PyMuPDF",
+	"PyQt5"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+	"types-setuptools",
+	"isort",
+	"autopep8",
+	"flake8",
+	"mypy",
+	"pylint"
+]
+
+[project.urls]
+homepage = "https://github.com/DrMcCoy/pdftextorizer"
+
+[project.scripts]
+pdftextorizer = "pdftextorizer:main"
+
+[tool.setuptools-git-versioning]
+enabled = true
+version_callback = "src.version:get_version"
