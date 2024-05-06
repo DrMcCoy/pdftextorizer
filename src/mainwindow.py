@@ -316,9 +316,12 @@ class MainWindow(QMainWindow):
         aspect_ratio_mode = Qt.KeepAspectRatio  # type: ignore[attr-defined]
         transform_mode = Qt.SmoothTransformation  # type: ignore[attr-defined]
 
-        self._page_view.setPixmap(self._viewport_image.scaled(width, height,
-                                                              aspectRatioMode=aspect_ratio_mode,
-                                                              transformMode=transform_mode))
+        if self._viewport_image.isNull():
+            self._page_view.setPixmap(QPixmap())
+        else:
+            self._page_view.setPixmap(self._viewport_image.scaled(width, height,
+                                                                  aspectRatioMode=aspect_ratio_mode,
+                                                                  transformMode=transform_mode))
 
     def _get_regions(self):
         if not self._pdf:
@@ -417,6 +420,9 @@ class MainWindow(QMainWindow):
         self._pdf_filename = None
 
         self._set_window_title()
+
+        self._page_image = QPixmap()
+        self._viewport_image = QPixmap()
 
         self._current_page = 0
         self._update_page_label()
