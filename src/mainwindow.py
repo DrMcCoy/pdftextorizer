@@ -115,7 +115,7 @@ class MainWindow(QMainWindow):
         dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
         dock.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         dock.setTitleBarWidget(QWidget(None))
-        dock.setMinimumSize(200, 1)
+        dock.setMinimumSize(320, 1)
 
         self._page_label = QLabel()
         self._page_label.setText("")
@@ -240,34 +240,35 @@ class MainWindow(QMainWindow):
 
         dock_layout.addWidget(no_image_text)
 
-        recalc_regions_button = QPushButton("Recalculate regions")
+        recalc_layout = QGridLayout()
+
+        recalc_regions_button = QPushButton("Recalculate page regions")
         recalc_regions_button.setStatusTip("Remove all regions on the current page and run autodetection again, "
                                            "with the current parameters")
         recalc_regions_button.clicked.connect(self._recalculate_regions)
 
-        recalc_layout = QHBoxLayout()
-        recalc_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
-        recalc_layout.setContentsMargins(0, 5, 0, 0)
-        recalc_layout.addWidget(recalc_regions_button)
+        recalc_all_regions_button = QPushButton("Recalculate all regions")
+        recalc_all_regions_button.setStatusTip("Remove all regions on all pages and run autodetection again, "
+                                               "with the current parameters")
+        recalc_all_regions_button.clicked.connect(self._recalculate_all_regions)
 
-        recalc_regions = QWidget()
-        recalc_regions.setLayout(recalc_layout)
-
-        dock_layout.addWidget(recalc_regions)
-
-        clear_regions_button = QPushButton("Clear regions")
+        clear_regions_button = QPushButton("Clear page regions")
         clear_regions_button.setStatusTip("Remove all regions on the current page")
         clear_regions_button.clicked.connect(self._clear_regions)
 
-        clear_layout = QHBoxLayout()
-        clear_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
-        clear_layout.setContentsMargins(0, 5, 0, 0)
-        clear_layout.addWidget(clear_regions_button)
+        clear_all_regions_button = QPushButton("Clear all regions")
+        clear_all_regions_button.setStatusTip("Remove all regions on all pages")
+        clear_all_regions_button.clicked.connect(self._clear_all_regions)
 
-        clear_regions = QWidget()
-        clear_regions.setLayout(clear_layout)
+        recalc_layout.addWidget(recalc_regions_button, 0, 0)
+        recalc_layout.addWidget(recalc_all_regions_button, 1, 0)
+        recalc_layout.addWidget(clear_regions_button, 0, 1)
+        recalc_layout.addWidget(clear_all_regions_button, 1, 1)
 
-        dock_layout.addWidget(clear_regions)
+        recalc = QWidget()
+        recalc.setLayout(recalc_layout)
+
+        dock_layout.addWidget(recalc)
 
         self.addDockWidget(Qt.RightDockWidgetArea, dock, Qt.Vertical)  # type: ignore[attr-defined]
         self._update_page_label()
@@ -473,8 +474,25 @@ class MainWindow(QMainWindow):
         self._pdf.clear_regions(self._current_page)
         self._update_page()
 
+    def _recalculate_all_regions(self) -> None:
+        if not self._pdf:
+            return
+
+        self._pdf.clear_all_regions()
+        self._update_page()
+
     def _clear_regions(self) -> None:
-        self._get_regions().clear()
+        if not self._pdf:
+            return
+
+        self._pdf.mark_page_empty(self._current_page)
+        self._update_page()
+
+    def _clear_all_regions(self) -> None:
+        if not self._pdf:
+            return
+
+        self._pdf.mark_all_pages_empty()
         self._update_page()
 
     def eventFilter(self, widget, event):  # pylint: disable=invalid-name

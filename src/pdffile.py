@@ -51,6 +51,12 @@ class PDFFile:
 
         return self._doc.page_count
 
+    def clear_all_regions(self) -> None:
+        """! Remove cached regions of all pages.
+        """
+
+        self._regions = {}
+
     def clear_regions(self, page: int) -> None:
         """! Remove cached regions of a page.
 
@@ -59,6 +65,23 @@ class PDFFile:
         """
 
         self._regions.pop(page)
+
+    def mark_page_empty(self, page: int) -> None:
+        """! Mark a single page as having no regions at all.
+
+        @param page  The page to mark as empty.
+
+        """
+        if page >= self.page_count:
+            return
+
+        self._regions[page] = []
+
+    def mark_all_pages_empty(self) -> None:
+        """! Mark all pages as having no regions at all.
+        """
+        for i in range(self.page_count):
+            self._regions[i] = []
 
     def render_page(self, page: int) -> Optional[QImage]:
         """! Render a page into an image.
