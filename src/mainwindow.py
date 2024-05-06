@@ -22,6 +22,7 @@
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Any, Optional
 
 from PyQt5.QtCore import QEvent, QRectF, Qt
@@ -292,7 +293,7 @@ class MainWindow(QMainWindow):
         title: str = f"{info['name']} {info['version']}"
 
         if self._pdf_filename:
-            title += f" -- {self._pdf_filename}"
+            title += f" -- {Path(self._pdf_filename).name}"
 
         self.setWindowTitle(title)
 
