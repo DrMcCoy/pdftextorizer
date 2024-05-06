@@ -255,6 +255,20 @@ class MainWindow(QMainWindow):
 
         dock_layout.addWidget(recalc_regions)
 
+        clear_regions_button = QPushButton("Clear regions")
+        clear_regions_button.setStatusTip("Remove all regions on the current page")
+        clear_regions_button.clicked.connect(self._clear_regions)
+
+        clear_layout = QHBoxLayout()
+        clear_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        clear_layout.setContentsMargins(0, 5, 0, 0)
+        clear_layout.addWidget(clear_regions_button)
+
+        clear_regions = QWidget()
+        clear_regions.setLayout(clear_layout)
+
+        dock_layout.addWidget(clear_regions)
+
         self.addDockWidget(Qt.RightDockWidgetArea, dock, Qt.Vertical)  # type: ignore[attr-defined]
         self._update_page_label()
 
@@ -457,6 +471,10 @@ class MainWindow(QMainWindow):
             return
 
         self._pdf.clear_regions(self._current_page)
+        self._update_page()
+
+    def _clear_regions(self) -> None:
+        self._get_regions().clear()
         self._update_page()
 
     def eventFilter(self, widget, event):  # pylint: disable=invalid-name
