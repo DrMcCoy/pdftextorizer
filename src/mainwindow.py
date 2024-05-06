@@ -25,9 +25,10 @@ import sys
 from typing import Any, Optional
 
 from PyQt5.QtCore import QEvent, QRectF, Qt
-from PyQt5.QtGui import QFont, QImage, QKeySequence, QPainter, QPalette, QPixmap
-from PyQt5.QtWidgets import (QAction, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox,
-                             QPushButton, QSizePolicy, QStatusBar, QStyle, QVBoxLayout, QWidget)
+from PyQt5.QtGui import QFont, QImage, QIntValidator, QKeySequence, QPainter, QPalette, QPixmap
+from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFileDialog, QFrame, QGridLayout,
+                             QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
+                             QStatusBar, QStyle, QVBoxLayout, QWidget)
 
 from pdffile import PDFFile
 from util import Util
@@ -105,7 +106,7 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self._show_about)
         about_menu.addAction(about_action)
 
-    def _create_dock(self) -> None:  # pylint: disable=too-many-statements
+    def _create_dock(self) -> None:  # pylint: disable=too-many-statements,too-many-locals
         style = self.style()
         assert style is not None
 
@@ -193,6 +194,67 @@ class MainWindow(QMainWindow):
 
         dock_layout.addWidget(page_buttons)
 
+        margins_label = QLabel("Margins:")
+        margins_label.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        dock_layout.addWidget(margins_label)
+
+        margins_layout = QGridLayout()
+        margins_layout.addWidget(QLabel("Left:"), 0, 0)
+        margins_layout.addWidget(QLabel("Right:"), 0, 2)
+        margins_layout.addWidget(QLabel("Top:"), 1, 0)
+        margins_layout.addWidget(QLabel("Bottom:"), 1, 2)
+
+        self._margin_left = QLineEdit("0")
+        self._margin_left.setStatusTip("Stripe on the left to ignore when detection regions")
+        self._margin_left.setValidator(QIntValidator(0, 9999))
+        self._margin_right = QLineEdit("0")
+        self._margin_right.setStatusTip("Stripe on the right to ignore when detection regions")
+        self._margin_right.setValidator(QIntValidator(0, 9999))
+        self._margin_top = QLineEdit("0")
+        self._margin_top.setStatusTip("Stripe on the top to ignore when detection regions")
+        self._margin_top.setValidator(QIntValidator(0, 9999))
+        self._margin_bottom = QLineEdit("0")
+        self._margin_bottom.setStatusTip("Stripe on the bottom to ignore when detection regions")
+        self._margin_bottom.setValidator(QIntValidator(0, 9999))
+
+        margins_layout.addWidget(self._margin_left, 0, 1)
+        margins_layout.addWidget(self._margin_right, 0, 3)
+        margins_layout.addWidget(self._margin_top, 1, 1)
+        margins_layout.addWidget(self._margin_bottom, 1, 3)
+
+        margins = QWidget()
+        margins.setLayout(margins_layout)
+        dock_layout.addWidget(margins)
+
+        self._no_image_text = QCheckBox("Ignore text on images?")
+        self._no_image_text.setStatusTip("If checked, text drawn over images won't be detected as a region")
+        self._no_image_text.setCheckState(Qt.Unchecked)  # type: ignore[attr-defined]
+
+        no_image_text_layout = QHBoxLayout()
+        no_image_text_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        no_image_text_layout.setContentsMargins(0, 0, 0, 0)
+        no_image_text_layout.addWidget(self._no_image_text)
+
+        no_image_text = QWidget()
+        no_image_text.setLayout(no_image_text_layout)
+
+        dock_layout.addWidget(no_image_text)
+
+        recalc_regions_button = QPushButton("Recalculate regions")
+        recalc_regions_button.setStatusTip("Remove all regions on the current page and run autodetection again, "
+                                           "with the current parameters")
+        recalc_regions_button.clicked.connect(self._recalculate_regions)
+
+        recalc_layout = QHBoxLayout()
+        recalc_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        recalc_layout.setContentsMargins(0, 5, 0, 0)
+        recalc_layout.addWidget(recalc_regions_button)
+
+        recalc_regions = QWidget()
+        recalc_regions.setLayout(recalc_layout)
+
+        dock_layout.addWidget(recalc_regions)
+
         self.addDockWidget(Qt.RightDockWidgetArea, dock, Qt.Vertical)  # type: ignore[attr-defined]
         self._update_page_label()
 
@@ -243,18 +305,26 @@ class MainWindow(QMainWindow):
                                                               aspectRatioMode=aspect_ratio_mode,
                                                               transformMode=transform_mode))
 
-    def _update_page(self) -> None:
+    def _get_regions(self):
         if not self._pdf:
-            self._page_view.setPixmap(QPixmap())
+            return []
+
+        top_margin = int(self._margin_top.text() or 0)
+        bottom_margin = int(self._margin_bottom.text() or 0)
+        left_margin = int(self._margin_left.text() or 0)
+        right_margin = int(self._margin_right.text() or 0)
+
+        no_image_text = self._no_image_text.checkState() == Qt.Checked  # type: ignore[attr-defined]
+
+        regions = self._pdf.get_regions(self._current_page,
+                                        top_margin=top_margin, bottom_margin=bottom_margin,
+                                        left_margin=left_margin, right_margin=right_margin,
+                                        no_image_text=no_image_text)
+        return regions or []
+
+    def _draw_regions(self, regions) -> None:
+        if not self._pdf:
             return
-
-        page_image = self._pdf.render_page(self._current_page) or QImage()
-        self._page_image = QPixmap.fromImage(page_image)
-
-        self._viewport_image = self._page_image.copy()
-
-        regions = self._pdf.get_regions(self._current_page)
-        assert regions is not None
 
         paint = QPainter(self._viewport_image)
         paint.setPen(Qt.red)  # type: ignore[attr-defined]
@@ -273,7 +343,22 @@ class MainWindow(QMainWindow):
             paint.drawRect(left, top, width, height)
             paint.drawText(QRectF(left, top, 1000, 1000), f" {i}")
 
+    def _update_page(self) -> None:
+        if not self._pdf:
+            self._page_view.setPixmap(QPixmap())
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)  # type: ignore[attr-defined]
+
+        page_image = self._pdf.render_page(self._current_page) or QImage()
+        self._page_image = QPixmap.fromImage(page_image)
+
+        self._viewport_image = self._page_image.copy()
+
+        self._draw_regions(self._get_regions())
+
         self._rescale_page()
+        QApplication.restoreOverrideCursor()
 
     def _update_page_label(self) -> None:
         if not self._pdf:
@@ -365,6 +450,13 @@ class MainWindow(QMainWindow):
 
         self._current_page = self._pdf.page_count - 1
         self._update_page_label()
+        self._update_page()
+
+    def _recalculate_regions(self) -> None:
+        if not self._pdf:
+            return
+
+        self._pdf.clear_regions(self._current_page)
         self._update_page()
 
     def eventFilter(self, widget, event):  # pylint: disable=invalid-name
