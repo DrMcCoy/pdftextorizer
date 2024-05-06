@@ -25,7 +25,7 @@ import sys
 from typing import Any, Optional
 
 from PyQt5.QtCore import QEvent, QRectF, Qt
-from PyQt5.QtGui import QFont, QImage, QIntValidator, QKeySequence, QPainter, QPalette, QPixmap
+from PyQt5.QtGui import QFont, QImage, QIntValidator, QKeyEvent, QKeySequence, QPainter, QPalette, QPixmap
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFileDialog, QFrame, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
                              QStatusBar, QStyle, QVBoxLayout, QWidget)
@@ -276,6 +276,7 @@ class MainWindow(QMainWindow):
     def _create_viewport(self) -> None:
         self._page_image = QPixmap()
         self._page_view = QLabel(self)
+        self._page_view.setFocusPolicy(Qt.StrongFocus)  # type: ignore[attr-defined]
 
         self._page_view.setBackgroundRole(QPalette.Base)
         self._page_view.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
@@ -501,11 +502,24 @@ class MainWindow(QMainWindow):
         self._pdf.mark_all_pages_empty()
         self._update_page()
 
+    def _handle_viewport_key(self, event: QKeyEvent):
+        if event.key() == Qt.Key_K:  # type: ignore[attr-defined]
+            self._next_page()
+        elif event.key() == Qt.Key_L:  # type: ignore[attr-defined]
+            self._last_page()
+        elif event.key() == Qt.Key_J:  # type: ignore[attr-defined]
+            self._previous_page()
+        elif event.key() == Qt.Key_H:  # type: ignore[attr-defined]
+            self._first_page()
+
     def eventFilter(self, widget, event):  # pylint: disable=invalid-name
         """! Special event handling for the main window.
         """
 
         if event.type() == QEvent.Resize and widget is self._page_view:
             self._rescale_page()
+            return True
+        if event.type() == QEvent.KeyRelease and widget is self._page_view:
+            self._handle_viewport_key(event)
             return True
         return super().eventFilter(widget, event)
