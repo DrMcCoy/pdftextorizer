@@ -24,8 +24,8 @@ import argparse
 import sys
 from typing import Any, Optional
 
-from PyQt5.QtCore import QEvent, Qt
-from PyQt5.QtGui import QImage, QKeySequence, QPalette, QPixmap
+from PyQt5.QtCore import QEvent, QRectF, Qt
+from PyQt5.QtGui import QFont, QImage, QKeySequence, QPainter, QPalette, QPixmap
 from PyQt5.QtWidgets import (QAction, QDockWidget, QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox,
                              QPushButton, QSizePolicy, QStatusBar, QStyle, QVBoxLayout, QWidget)
 
@@ -43,7 +43,8 @@ class MainWindow(QMainWindow):
         self._args = args
 
         self._current_page: int = 0
-        self._page_image = QImage()
+        self._page_image = QPixmap()
+        self._viewport_image = QPixmap()
 
         self._pdf_filename: Optional[str] = None
         self._pdf: Optional[PDFFile] = None
@@ -196,7 +197,7 @@ class MainWindow(QMainWindow):
         self._update_page_label()
 
     def _create_viewport(self) -> None:
-        self._page_image = QImage()
+        self._page_image = QPixmap()
         self._page_view = QLabel(self)
 
         self._page_view.setBackgroundRole(QPalette.Base)
@@ -232,21 +233,47 @@ class MainWindow(QMainWindow):
         dlg.setText(message)
         dlg.exec()
 
-    def _update_page(self) -> None:
-        if not self._pdf:
-            self._page_view.setPixmap(QPixmap())
-            return
-
-        self._page_image = self._pdf.render_page(self._current_page) or QImage()
-
+    def _rescale_page(self) -> None:
         width = self._page_view.width()
         height = self._page_view.height()
         aspect_ratio_mode = Qt.KeepAspectRatio  # type: ignore[attr-defined]
         transform_mode = Qt.SmoothTransformation  # type: ignore[attr-defined]
 
-        self._page_view.setPixmap(QPixmap.fromImage(self._page_image).scaled(width, height,
-                                                                             aspectRatioMode=aspect_ratio_mode,
-                                                                             transformMode=transform_mode))
+        self._page_view.setPixmap(self._viewport_image.scaled(width, height,
+                                                              aspectRatioMode=aspect_ratio_mode,
+                                                              transformMode=transform_mode))
+
+    def _update_page(self) -> None:
+        if not self._pdf:
+            self._page_view.setPixmap(QPixmap())
+            return
+
+        page_image = self._pdf.render_page(self._current_page) or QImage()
+        self._page_image = QPixmap.fromImage(page_image)
+
+        self._viewport_image = self._page_image.copy()
+
+        regions = self._pdf.get_regions(self._current_page)
+        assert regions is not None
+
+        paint = QPainter(self._viewport_image)
+        paint.setPen(Qt.red)  # type: ignore[attr-defined]
+
+        font = QFont()
+        font.setFamily(font.defaultFamily())
+        font.setPointSize(12)
+        paint.setFont(font)
+
+        for i, region in enumerate(regions):
+            left = region.x0
+            top = region.y0
+            width = region.x1 - region.x0
+            height = region.y1 - region.y0
+
+            paint.drawRect(left, top, width, height)
+            paint.drawText(QRectF(left, top, 1000, 1000), f" {i}")
+
+        self._rescale_page()
 
     def _update_page_label(self) -> None:
         if not self._pdf:
@@ -345,13 +372,6 @@ class MainWindow(QMainWindow):
         """
 
         if event.type() == QEvent.Resize and widget is self._page_view:
-            width = self._page_view.width()
-            height = self._page_view.height()
-            aspect_ratio_mode = Qt.KeepAspectRatio  # type: ignore[attr-defined]
-            transform_mode = Qt.SmoothTransformation  # type: ignore[attr-defined]
-
-            self._page_view.setPixmap(QPixmap.fromImage(self._page_image).scaled(width, height,
-                                                                                 aspectRatioMode=aspect_ratio_mode,
-                                                                                 transformMode=transform_mode))
+            self._rescale_page()
             return True
         return super().eventFilter(widget, event)
