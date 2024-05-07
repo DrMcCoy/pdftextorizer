@@ -122,6 +122,33 @@ class PDFFile:
         assert regions is not None
         regions.append(fitz.IRect(left, top, right, bottom))
 
+    def modify_region(self, page: int, region: int, left: int, top: int, right: int, bottom: int):
+        """! Modify an existing region on a page.
+
+        @param page    The page to modify the region on.
+        @param region  The region to modify.
+        @param left    The region's new left coordinate.
+        @param top     The region's new top coordinate.
+        @param right   The region's new right coordinate.
+        @param bottom  The region's new bottom coordinate.
+        """
+        if page < 0 or page >= self.page_count or region < 0 or region > len(self.get_regions(page) or []):
+            return
+
+        p = self._doc.load_page(page)
+
+        left = max(0, min(left, p.rect.width - 1))
+        right = max(0, min(right, p.rect.width - 1))
+        top = max(0, min(top, p.rect.height - 1))
+        bottom = max(0, min(bottom, p.rect.height - 1))
+
+        if left >= right or top >= bottom:
+            return
+
+        regions = self.get_regions(page)
+        assert regions is not None
+        regions[region] = fitz.IRect(left, top, right, bottom)
+
     def render_page(self, page: int) -> Optional[QImage]:
         """! Render a page into an image.
 
