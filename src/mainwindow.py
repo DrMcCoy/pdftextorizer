@@ -351,6 +351,19 @@ class MainWindow(QMainWindow):
 
         dock_layout.addWidget(cur_region)
 
+        delete_region_button = QPushButton("Delete region")
+        delete_region_button.setStatusTip("Delete the currently selected region")
+        delete_region_button.clicked.connect(self._delete_region)
+
+        add_delete_layout = QGridLayout()
+
+        add_delete_layout.addWidget(delete_region_button, 0, 0)
+
+        add_delete = QWidget()
+        add_delete.setLayout(add_delete_layout)
+
+        dock_layout.addWidget(add_delete)
+
         self.addDockWidget(Qt.RightDockWidgetArea, dock, Qt.Vertical)  # type: ignore[attr-defined]
         self._update_page_label()
 
@@ -653,6 +666,14 @@ class MainWindow(QMainWindow):
             return
 
         self._pdf.mark_all_pages_empty()
+        self._current_region = -1
+        self._update_page()
+
+    def _delete_region(self) -> None:
+        if not self._pdf:
+            return
+
+        self._pdf.remove_region(self._current_page, self._current_region)
         self._current_region = -1
         self._update_page()
 

@@ -83,6 +83,19 @@ class PDFFile:
         for i in range(self.page_count):
             self._regions[i] = []
 
+    def remove_region(self, page: int, region: int) -> None:
+        """! Remove a region from a page.
+
+        @param page    The page to remove the region from.
+        @param region  The region to remove.
+        """
+        if page < 0 or page >= self.page_count or region < 0 or region > len(self.get_regions(page) or []):
+            return
+
+        regions = self.get_regions(page)
+        assert regions is not None
+        regions.pop(region)
+
     def render_page(self, page: int) -> Optional[QImage]:
         """! Render a page into an image.
 
