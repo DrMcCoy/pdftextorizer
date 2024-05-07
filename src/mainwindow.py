@@ -27,10 +27,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from PyQt5.QtCore import QEvent, QPoint, QRect, QRectF, Qt
-from PyQt5.QtGui import QFont, QImage, QIntValidator, QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPalette, QPixmap
+from PyQt5.QtGui import QFont, QImage, QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPalette, QPixmap
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFileDialog, QFrame, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
-                             QStatusBar, QStyle, QVBoxLayout, QWidget)
+                             QSpinBox, QStatusBar, QStyle, QVBoxLayout, QWidget)
 
 from pdffile import PDFFile
 from util import Util
@@ -215,18 +215,30 @@ class MainWindow(QMainWindow):
         margins_layout.addWidget(QLabel("Top:"), 1, 0)
         margins_layout.addWidget(QLabel("Bottom:"), 1, 2)
 
-        self._margin_left = QLineEdit("0")
+        self._margin_left = QSpinBox()
         self._margin_left.setStatusTip("Stripe on the left to ignore when detection regions")
-        self._margin_left.setValidator(QIntValidator(0, 9999))
-        self._margin_right = QLineEdit("0")
+        self._margin_left.setRange(0, 9999)
+        self._margin_left.setValue(0)
+        self._margin_left.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._margin_left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._margin_right = QSpinBox()
         self._margin_right.setStatusTip("Stripe on the right to ignore when detection regions")
-        self._margin_right.setValidator(QIntValidator(0, 9999))
-        self._margin_top = QLineEdit("0")
+        self._margin_right.setRange(0, 9999)
+        self._margin_right.setValue(0)
+        self._margin_right.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._margin_right.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._margin_top = QSpinBox()
         self._margin_top.setStatusTip("Stripe on the top to ignore when detection regions")
-        self._margin_top.setValidator(QIntValidator(0, 9999))
-        self._margin_bottom = QLineEdit("0")
+        self._margin_top.setRange(0, 9999)
+        self._margin_top.setValue(0)
+        self._margin_top.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._margin_top.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._margin_bottom = QSpinBox()
         self._margin_bottom.setStatusTip("Stripe on the bottom to ignore when detection regions")
-        self._margin_bottom.setValidator(QIntValidator(0, 9999))
+        self._margin_bottom.setRange(0, 9999)
+        self._margin_bottom.setValue(0)
+        self._margin_bottom.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._margin_bottom.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         margins_layout.addWidget(self._margin_left, 0, 1)
         margins_layout.addWidget(self._margin_right, 0, 3)
@@ -450,10 +462,10 @@ class MainWindow(QMainWindow):
         if not self._pdf:
             return []
 
-        top_margin = int(self._margin_top.text() or 0)
-        bottom_margin = int(self._margin_bottom.text() or 0)
-        left_margin = int(self._margin_left.text() or 0)
-        right_margin = int(self._margin_right.text() or 0)
+        top_margin = self._margin_top.value()
+        bottom_margin = self._margin_bottom.value()
+        left_margin = self._margin_left.value()
+        right_margin = self._margin_right.value()
 
         no_image_text = self._no_image_text.checkState() == Qt.Checked  # type: ignore[attr-defined]
 
