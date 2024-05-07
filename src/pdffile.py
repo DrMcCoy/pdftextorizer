@@ -72,7 +72,7 @@ class PDFFile:
         @param page  The page to mark as empty.
 
         """
-        if page >= self.page_count:
+        if page < 0 or page >= self.page_count:
             return
 
         self._regions[page] = []
@@ -91,7 +91,7 @@ class PDFFile:
         @return An image of the rendered page or None if the page is out of bounds.
         """
 
-        if page >= self.page_count:
+        if page < 0 or page >= self.page_count:
             return None
 
         pix = self._doc.load_page(page).get_pixmap(alpha=False)
@@ -112,7 +112,7 @@ class PDFFile:
         @return A list of rectangles of found regions, or None if the page is out of bounds.
         """
 
-        if page >= self.page_count:
+        if page < 0 or page >= self.page_count:
             return None
 
         if page not in self._regions:
@@ -122,3 +122,21 @@ class PDFFile:
                                                no_image_text=no_image_text)
 
         return self._regions[page]
+
+    def find_region(self, page: int, x: int, y: int) -> int:
+        """! Find which region of a page these coordinates are in.
+
+        @param page  The page to look at.
+        @param x     X coordinate to check against.
+        @param y     Y coordinate to check against.
+
+        @return Index of the region these coordinates are in, or -1 if none match.
+        """
+
+        regions = self.get_regions(page) or []
+
+        for i, region in enumerate(regions):
+            if (x, y) in region:
+                return i
+
+        return -1
