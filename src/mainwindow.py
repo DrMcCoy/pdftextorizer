@@ -22,10 +22,11 @@
 
 import argparse
 import sys
+from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
-from PyQt5.QtCore import QEvent, QRect, QRectF, Qt
+from PyQt5.QtCore import QEvent, QPoint, QRect, QRectF, Qt
 from PyQt5.QtGui import QFont, QImage, QIntValidator, QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPalette, QPixmap
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFileDialog, QFrame, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
@@ -33,6 +34,13 @@ from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFil
 
 from pdffile import PDFFile
 from util import Util
+
+
+class OperationMode(Enum):
+    """! The different operation modes PDF Textorizer can be in.
+    """
+    NORMAL = 0
+    ADD_REGION = 1
 
 
 class MainWindow(QMainWindow):
@@ -44,10 +52,14 @@ class MainWindow(QMainWindow):
 
         self._args = args
 
+        self._op_mode = OperationMode.NORMAL
+
         self._current_page: int = 0
         self._page_image = QPixmap()
         self._viewport_image = QPixmap()
         self._viewport_scaled_image = QPixmap()
+
+        self._new_region = QRect()
 
         self._pdf_filename: Optional[str] = None
         self._pdf: Optional[PDFFile] = None
@@ -355,9 +367,14 @@ class MainWindow(QMainWindow):
         delete_region_button.setStatusTip("Delete the currently selected region")
         delete_region_button.clicked.connect(self._delete_region)
 
+        add_region_button = QPushButton("Add region")
+        add_region_button.setStatusTip("Add a new region")
+        add_region_button.clicked.connect(self._add_region)
+
         add_delete_layout = QGridLayout()
 
-        add_delete_layout.addWidget(delete_region_button, 0, 0)
+        add_delete_layout.addWidget(add_region_button, 0, 0)
+        add_delete_layout.addWidget(delete_region_button, 0, 1)
 
         add_delete = QWidget()
         add_delete.setLayout(add_delete_layout)
@@ -417,6 +434,16 @@ class MainWindow(QMainWindow):
             self._viewport_scaled_image = self._viewport_image.scaled(width, height,
                                                                       aspectRatioMode=aspect_ratio_mode,
                                                                       transformMode=transform_mode)
+            if not self._new_region.isNull():
+                paint = QPainter(self._viewport_scaled_image)
+                paint.setPen(Qt.blue)  # type: ignore[attr-defined]
+
+                offset_x = int((self._page_view.width() - self._viewport_scaled_image.width()) / 2)
+                offset_y = int((self._page_view.height() - self._viewport_scaled_image.height()) / 2)
+
+                paint.drawRect(self._new_region.left() - offset_x, self._new_region.top() - offset_y,
+                               self._new_region.width(), self._new_region.height())
+
             self._page_view.setPixmap(self._viewport_scaled_image)
 
     def _get_regions(self):
@@ -470,7 +497,8 @@ class MainWindow(QMainWindow):
             self._draw_region(paint, regions[self._current_region], self._current_region)
 
     def _update_page(self) -> None:
-        QApplication.setOverrideCursor(Qt.WaitCursor)  # type: ignore[attr-defined]
+        if self._op_mode == OperationMode.NORMAL:
+            QApplication.setOverrideCursor(Qt.WaitCursor)  # type: ignore[attr-defined]
 
         if self._pdf:
             page_image = self._pdf.render_page(self._current_page) or QImage()
@@ -490,7 +518,8 @@ class MainWindow(QMainWindow):
 
         self._update_page_label()
 
-        QApplication.restoreOverrideCursor()
+        if self._op_mode == OperationMode.NORMAL:
+            QApplication.restoreOverrideCursor()
 
     def _update_page_label(self) -> None:
         if not self._pdf:
@@ -541,6 +570,9 @@ class MainWindow(QMainWindow):
         self._pdf_filename = filename
         self._set_window_title()
 
+        self._op_mode = OperationMode.NORMAL
+        self._new_region = QRect()
+
         self._current_page = 0
         self._current_region = -1
         self._update_page()
@@ -554,6 +586,9 @@ class MainWindow(QMainWindow):
         self._page_image = QPixmap()
         self._viewport_image = QPixmap()
 
+        self._op_mode = OperationMode.NORMAL
+        self._new_region = QRect()
+
         self._current_page = 0
         self._current_region = -1
         self._update_page()
@@ -566,7 +601,7 @@ class MainWindow(QMainWindow):
         self._open_pdf(filename)
 
     def _first_page(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._current_page = 0
@@ -574,7 +609,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _previous_page(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         if self._current_page == 0:
@@ -585,7 +620,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _next_page(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         if self._current_page >= (self._pdf.page_count - 1):
@@ -596,7 +631,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _last_page(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._current_page = self._pdf.page_count - 1
@@ -604,7 +639,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _first_region(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._current_region = 0
@@ -614,7 +649,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _next_region(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._current_region += 1
@@ -624,21 +659,21 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _prev_region(self) -> None:
-        if not self._pdf or self._current_region <= 0:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL or self._current_region <= 0:
             return
 
         self._current_region -= 1
         self._update_page()
 
     def _last_region(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._current_region = len(self._get_regions()) - 1
         self._update_page()
 
     def _recalculate_regions(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._pdf.clear_regions(self._current_page)
@@ -646,7 +681,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _recalculate_all_regions(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._pdf.clear_all_regions()
@@ -654,7 +689,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _clear_regions(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._pdf.mark_page_empty(self._current_page)
@@ -662,7 +697,7 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _clear_all_regions(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._pdf.mark_all_pages_empty()
@@ -670,12 +705,20 @@ class MainWindow(QMainWindow):
         self._update_page()
 
     def _delete_region(self) -> None:
-        if not self._pdf:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
         self._pdf.remove_region(self._current_page, self._current_region)
         self._current_region = -1
         self._update_page()
+
+    def _add_region(self) -> None:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        QApplication.setOverrideCursor(Qt.CrossCursor)  # type: ignore[attr-defined]
+        self._op_mode = OperationMode.ADD_REGION
+        self._new_region = QRect()
 
     def _get_page_rect(self) -> Optional[QRect]:
         if not self._pdf:
@@ -701,6 +744,39 @@ class MainWindow(QMainWindow):
 
         return page_x, page_y
 
+    def _add_region_end(self, add_created_region: bool):
+        if not self._pdf:
+            return
+
+        if add_created_region:
+            offset_x = int((self._page_view.width() - self._viewport_scaled_image.width()) / 2)
+            offset_y = int((self._page_view.height() - self._viewport_scaled_image.height()) / 2)
+            scale_x = self._page_image.width() / self._viewport_scaled_image.width()
+            scale_y = self._page_image.height() / self._viewport_scaled_image.height()
+
+            left = int((self._new_region.left() - offset_x) * scale_x)
+            top = int((self._new_region.top() - offset_y) * scale_y)
+            right = int((self._new_region.right() - offset_x) * scale_x)
+            bottom = int((self._new_region.bottom() - offset_y) * scale_y)
+
+            if left > right:
+                left, right = right, left
+            if top > bottom:
+                top, bottom = bottom, top
+
+            left = max(0, min(left, self._page_image.width() - 1))
+            right = max(0, min(right, self._page_image.width() - 1))
+            top = max(0, min(top, self._page_image.height() - 1))
+            bottom = max(0, min(bottom, self._page_image.height() - 1))
+
+            if left < right and top < bottom:
+                self._pdf.add_region(self._current_page, left, top, right, bottom)
+
+        self._op_mode = OperationMode.NORMAL
+        self._new_region = QRect()
+        self._update_page()
+        QApplication.restoreOverrideCursor()
+
     def _handle_viewport_key(self, event: QKeyEvent):
         if event.key() == Qt.Key_K:  # type: ignore[attr-defined]
             self._next_page()
@@ -715,9 +791,38 @@ class MainWindow(QMainWindow):
         if not self._pdf:
             return
 
-        x, y = self._get_page_coords(event.x(), event.y())
-        self._current_region = self._pdf.find_region(self._current_page, x, y)
-        self._update_page()
+        if (self._op_mode == OperationMode.NORMAL and
+                event.type() == QEvent.MouseButtonRelease):  # type: ignore[attr-defined]
+            x, y = self._get_page_coords(event.x(), event.y())
+            self._current_region = self._pdf.find_region(self._current_page, x, y)
+            self._update_page()
+            return
+
+        if (self._op_mode == OperationMode.ADD_REGION and
+                event.type() == QEvent.MouseButtonPress):  # type: ignore[attr-defined]
+            if event.button() == Qt.RightButton:  # type: ignore[attr-defined]
+                self._add_region_end(False)
+                return
+
+            if event.button() == Qt.LeftButton:  # type: ignore[attr-defined]
+                if self._new_region.isNull():
+                    self._new_region = QRect(event.x(), event.y(), 1, 1)
+                self._update_page()
+
+            return
+
+        if (self._op_mode == OperationMode.ADD_REGION and
+                event.type() == QEvent.MouseButtonRelease):  # type: ignore[attr-defined]
+            self._add_region_end(True)
+            return
+
+    def _handle_viewport_move(self, event: QMouseEvent):
+        if not self._pdf:
+            return
+
+        if self._op_mode == OperationMode.ADD_REGION and not self._new_region.isNull():
+            self._new_region.setBottomRight(QPoint(event.x(), event.y()))
+            self._update_page()
 
     def eventFilter(self, widget, event):  # pylint: disable=invalid-name
         """! Special event handling for the main window.
@@ -732,4 +837,10 @@ class MainWindow(QMainWindow):
         if event.type() == QEvent.MouseButtonRelease and widget is self._page_view:
             self._handle_viewport_click(event)
             return True
+        if event.type() == QEvent.MouseButtonPress and widget is self._page_view:
+            self._handle_viewport_click(event)
+            return True
+        if event.type() == QEvent.MouseMove and widget is self._page_view:
+            self._handle_viewport_move(event)
+            return False
         return super().eventFilter(widget, event)

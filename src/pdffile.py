@@ -96,6 +96,32 @@ class PDFFile:
         assert regions is not None
         regions.pop(region)
 
+    def add_region(self, page: int, left: int, top: int, right: int, bottom: int) -> None:
+        """! Add a new region to a page.
+
+        @param page    The page to add the new region to.
+        @param left    The region's left coordinate.
+        @param top     The region's top coordinate.
+        @param right   The region's right coordinate.
+        @param bottom  The region's bottom coordinate.
+        """
+        if page < 0 or page >= self.page_count:
+            return
+
+        p = self._doc.load_page(page)
+
+        left = max(0, min(left, p.rect.width - 1))
+        right = max(0, min(right, p.rect.width - 1))
+        top = max(0, min(top, p.rect.height - 1))
+        bottom = max(0, min(bottom, p.rect.height - 1))
+
+        if left >= right or top >= bottom:
+            return
+
+        regions = self.get_regions(page)
+        assert regions is not None
+        regions.append(fitz.IRect(left, top, right, bottom))
+
     def render_page(self, page: int) -> Optional[QImage]:
         """! Render a page into an image.
 
