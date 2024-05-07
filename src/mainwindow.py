@@ -29,8 +29,8 @@ from typing import Any, Optional
 from PyQt5.QtCore import QEvent, QPoint, QRect, QRectF, Qt
 from PyQt5.QtGui import QFont, QImage, QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPalette, QPixmap
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFileDialog, QFrame, QGridLayout,
-                             QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton, QSizePolicy,
-                             QSpinBox, QStatusBar, QStyle, QVBoxLayout, QWidget)
+                             QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy, QSpinBox,
+                             QStatusBar, QStyle, QVBoxLayout, QWidget)
 
 from pdffile import PDFFile
 from util import Util
@@ -356,14 +356,30 @@ class MainWindow(QMainWindow):
         cur_region_layout.addWidget(QLabel("Width:"), 1, 0)
         cur_region_layout.addWidget(QLabel("Height:"), 1, 2)
 
-        self._cur_region_left = QLineEdit("0")
-        self._cur_region_left.setReadOnly(True)
-        self._cur_region_top = QLineEdit("0")
-        self._cur_region_top.setReadOnly(True)
-        self._cur_region_width = QLineEdit("0")
-        self._cur_region_width.setReadOnly(True)
-        self._cur_region_height = QLineEdit("0")
-        self._cur_region_height.setReadOnly(True)
+        self._cur_region_left = QSpinBox()
+        self._cur_region_left.setStatusTip("Left edge of the region")
+        self._cur_region_left.setRange(0, 0)
+        self._cur_region_left.setValue(0)
+        self._cur_region_left.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._cur_region_left.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._cur_region_top = QSpinBox()
+        self._cur_region_top.setStatusTip("Top edge of the region")
+        self._cur_region_top.setRange(0, 0)
+        self._cur_region_top.setValue(0)
+        self._cur_region_top.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._cur_region_top.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._cur_region_width = QSpinBox()
+        self._cur_region_width.setStatusTip("Width of the region")
+        self._cur_region_width.setRange(0, 0)
+        self._cur_region_width.setValue(0)
+        self._cur_region_width.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._cur_region_width.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._cur_region_height = QSpinBox()
+        self._cur_region_height.setStatusTip("Height of the region")
+        self._cur_region_height.setRange(0, 0)
+        self._cur_region_height.setValue(0)
+        self._cur_region_height.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
+        self._cur_region_height.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         cur_region_layout.addWidget(self._cur_region_left, 0, 1)
         cur_region_layout.addWidget(self._cur_region_top, 0, 3)
@@ -537,6 +553,14 @@ class MainWindow(QMainWindow):
         if not self._pdf:
             self._page_label.setText("? / ?")
             self._region_label.setText("? / ?")
+            self._cur_region_left.setValue(0)
+            self._cur_region_left.setEnabled(False)
+            self._cur_region_top.setValue(0)
+            self._cur_region_top.setEnabled(False)
+            self._cur_region_width.setValue(0)
+            self._cur_region_width.setEnabled(False)
+            self._cur_region_height.setValue(0)
+            self._cur_region_height.setEnabled(False)
             return
 
         regions = self._get_regions()
@@ -546,15 +570,27 @@ class MainWindow(QMainWindow):
 
         if self._current_region >= 0 and self._current_region < len(regions):
             region = regions[self._current_region]
-            self._cur_region_left.setText(f"{region.x0}")
-            self._cur_region_top.setText(f"{region.y0}")
-            self._cur_region_width.setText(f"{region.x1 - region.x0}")
-            self._cur_region_height.setText(f"{region.y1 - region.y0}")
+            self._cur_region_left.setValue(region.x0)
+            self._cur_region_left.setRange(0, self._page_image.width() - 1)
+            self._cur_region_left.setEnabled(True)
+            self._cur_region_top.setValue(region.y0)
+            self._cur_region_top.setRange(0, self._page_image.height() - 1)
+            self._cur_region_top.setEnabled(True)
+            self._cur_region_width.setValue(region.x1 - region.x0)
+            self._cur_region_width.setRange(0, self._page_image.width())
+            self._cur_region_width.setEnabled(True)
+            self._cur_region_height.setValue(region.y1 - region.y0)
+            self._cur_region_height.setRange(0, self._page_image.height() - 1)
+            self._cur_region_height.setEnabled(True)
         else:
-            self._cur_region_left.setText("0")
-            self._cur_region_top.setText("0")
-            self._cur_region_width.setText("0")
-            self._cur_region_height.setText("0")
+            self._cur_region_left.setValue(0)
+            self._cur_region_left.setEnabled(False)
+            self._cur_region_top.setValue(0)
+            self._cur_region_top.setEnabled(False)
+            self._cur_region_width.setValue(0)
+            self._cur_region_width.setEnabled(False)
+            self._cur_region_height.setValue(0)
+            self._cur_region_height.setEnabled(False)
 
     def _close_self(self) -> None:
         self.close()
