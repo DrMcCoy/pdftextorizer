@@ -151,49 +151,44 @@ class MainWindow(QMainWindow):
         pages_layout = QHBoxLayout()
         pages_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
         pages_layout.setSpacing(0)
-        pages_layout.addWidget(page_label_frame)
-
-        pages = QWidget()
-        pages.setLayout(pages_layout)
-
-        dock_layout.addWidget(pages)
-
-        page_button_layout = QHBoxLayout()
-        page_button_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
-        page_button_layout.setSpacing(5)
 
         first_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSkipBackward),  # type: ignore[attr-defined]
                                         "", parent=self)
         first_page_button.setStatusTip("First page")
         first_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         first_page_button.clicked.connect(self._first_page)
-        page_button_layout.addWidget(first_page_button)
 
         prev_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSeekBackward),  # type: ignore[attr-defined]
                                        "", parent=self)
         prev_page_button.setStatusTip("Previous page")
         prev_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         prev_page_button.clicked.connect(self._previous_page)
-        page_button_layout.addWidget(prev_page_button)
 
         next_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSeekForward),  # type: ignore[attr-defined]
                                        "", parent=self)
         next_page_button.setStatusTip("Next page")
         next_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         next_page_button.clicked.connect(self._next_page)
-        page_button_layout.addWidget(next_page_button)
 
         last_page_button = QPushButton(style.standardIcon(QStyle.SP_MediaSkipForward),  # type: ignore[attr-defined]
                                        "", parent=self)
         last_page_button.setStatusTip("Last page")
         last_page_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         last_page_button.clicked.connect(self._last_page)
-        page_button_layout.addWidget(last_page_button)
 
-        page_buttons = QWidget()
-        page_buttons.setLayout(page_button_layout)
+        pages_layout.addWidget(first_page_button)
+        pages_layout.addWidget(prev_page_button)
+        pages_layout.addWidget(page_label_frame)
+        pages_layout.addWidget(next_page_button)
+        pages_layout.addWidget(last_page_button)
 
-        dock_layout.addWidget(page_buttons)
+        pages = QWidget()
+        pages.setLayout(pages_layout)
+
+        pages_label = QLabel("Pages:")
+        pages_label.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
+        dock_layout.addWidget(pages_label)
+        dock_layout.addWidget(pages)
 
         margins_label = QLabel("Margins:")
         margins_label.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
