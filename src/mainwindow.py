@@ -629,7 +629,8 @@ class MainWindow(QMainWindow):
 
         dlg = QMessageBox(self)
         dlg.setWindowTitle(f"About {info['name']}")
-        dlg.setText(Util.get_version_string())
+        dlg.setTextFormat(Qt.RichText)  # type: ignore[attr-defined]
+        dlg.setText(Util.get_version_string(html=True))
         dlg.exec()
 
     def _open_pdf(self, filename) -> None:

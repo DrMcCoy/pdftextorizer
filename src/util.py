@@ -33,8 +33,10 @@ class Util:  # pylint: disable=too-few-public-methods
     """
 
     @staticmethod
-    def get_project_info() -> dict[str, Any]:
+    def get_project_info(html: bool = False) -> dict[str, Any]:
         """! Get project metadata information.
+
+        @param html  If true, emit HTML for URLs and email addresses.
 
         @return A dict containing project metadata information.
         """
@@ -50,22 +52,30 @@ class Util:  # pylint: disable=too-few-public-methods
         info["url"] = {}
         for i in project_metadata.get_all("Project-URL") or []:
             parsed = i.split(", ", 1)
-            info["url"][parsed[0]] = parsed[1]
+            if html:
+                info["url"][parsed[0]] = f"<a href=\"{parsed[1]}\">{parsed[1]}</a>"
+            else:
+                info["url"][parsed[0]] = parsed[1]
 
         # Authors are stored in an email address format, pasted together into one string
         info["authors"] = []
         for address in project_metadata["Author-email"].split(", "):
             parsed = email.utils.parseaddr(address)
-            info["authors"].append(f"{parsed[0]} <{parsed[1]}>")
+            if html:
+                info["authors"].append(f"{parsed[0]} &lt;<a href=\"{parsed[1]}\">{parsed[1]}</a>&gt;")
+            else:
+                info["authors"].append(f"{parsed[0]} <{parsed[1]}>")
 
         return info
 
     @staticmethod
-    def get_version_string() -> str:
+    def get_version_string(html: bool = False) -> str:
         """! Get formated version information.
+
+        @param html  If true, emit HTML instead of plain text.
         """
 
-        info: dict[str, Any] = Util.get_project_info()
+        info: dict[str, Any] = Util.get_project_info(html)
 
         version_string = ""
         version_string += f"{info['name']} {info['version']}\n"
@@ -75,5 +85,8 @@ class Util:  # pylint: disable=too-few-public-methods
         version_string += "\n"
         version_string += "This is free software; see the source for copying conditions.  There is NO\n"
         version_string += "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+
+        if html:
+            version_string = version_string.replace("\n", "<br>")
 
         return version_string
