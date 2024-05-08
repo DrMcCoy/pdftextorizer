@@ -45,10 +45,8 @@ class PDFFile:
         self._regions: dict[int, list[fitz.IRect]] = {}
 
     @property
-    def page_count(self):
-        """! The number of pages in the PDF file.
-        """
-
+    def page_count(self) -> int:
+        """! The number of pages in the PDF file. """
         return self._doc.page_count
 
     def clear_all_regions(self) -> None:
