@@ -20,13 +20,16 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from hashlib import sha1
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import fitz
+from marshmallow import ValidationError
 from PyQt5.QtGui import QImage
 
 from multi_column import column_boxes
+from regions_schema import RegionsSchema
 
 
 class PDFFile:
@@ -34,17 +37,19 @@ class PDFFile:
     """
 
     def __init__(self, filename: str) -> None:
-        self._name = Path(filename).name
+        self._name: str = Path(filename).name
+
+        with open(filename, "rb") as file:
+            data = file.read()
 
         try:
-            self._doc = fitz.open(filename)
-        except fitz.FileNotFoundError as err:
-            raise FileNotFoundError(err) from err
+            self._doc = fitz.open(stream=data, filetype="pdf")
         except fitz.EmptyFileError as err:
             raise ValueError(err) from err
         except fitz.FileDataError as err:
             raise ValueError(err) from err
 
+        self._checksum: str = sha1(data).hexdigest()
         self._regions: dict[int, list[fitz.IRect]] = {}
 
     @property
@@ -251,3 +256,45 @@ class PDFFile:
                 return i
 
         return -1
+
+    def serialize_regions(self) -> dict[str, Any]:
+        """! Serialize the regions of this PDF, with metadata, into a dictionary.
+
+        @return A dictorionary containing the serialized data.
+        """
+
+        data = {
+            'version': {'major': 1, 'minor': 0, 'patch': 0},
+            'pdf': {
+                'name': self._name,
+                'checksum': self._checksum,
+                'pages': self.page_count
+            },
+            'pages': self._regions
+        }
+
+        return RegionsSchema().dump(data)
+
+    def deserialize_regions(self, data) -> None:
+        """! Deserialize the regions of this PDF from saved data.
+
+        @param data  The data to deserialize from.
+        """
+
+        schema = RegionsSchema()
+
+        major, minor, patch = schema.get_version(data)
+        if major != 1 or minor > 0:
+            raise ValidationError(f"Unsupported region file version {major}.{minor}.{patch}")
+
+        if isinstance(data, str):
+            result = schema.loads(data)
+        else:
+            result = schema.load(data)
+
+        if result["pdf"]["checksum"] != self._checksum:
+            raise ValidationError(f"PDF file checksum mismatch ({self._checksum} vs {result['pdf']['checksum']})")
+        if result["pdf"]["pages"] != self.page_count:
+            raise ValidationError(f"PDF page count mismatch ({self.page_count} vs {result['pdf']['pages']})")
+
+        self._regions = result["pages"]

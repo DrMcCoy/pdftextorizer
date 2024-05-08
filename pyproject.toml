@@ -18,7 +18,8 @@ keywords = [ "pdf", "extract", "gui" ]
 requires-python = ">=3.12"
 dependencies = [
 	"PyMuPDF",
-	"PyQt5"
+	"PyQt5",
+	"marshmallow"
 ]
 dynamic = ["version"]
 

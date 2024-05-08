@@ -21,8 +21,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import argparse
+import json
 import sys
 from enum import Enum
+from pathlib import Path
 from typing import Any, Optional
 
 from PyQt5.QtCore import QEvent, QPoint, QRect, QRectF, Qt
@@ -63,6 +65,8 @@ class MainWindow(QMainWindow):
         self._pdf: Optional[PDFFile] = None
 
         self._current_region: int = -1
+        self._regions_filename: Optional[str] = None
+        self._regions_modified: bool = False
 
         self._set_window_title()
         self.setStatusBar(QStatusBar(self))
@@ -89,7 +93,7 @@ class MainWindow(QMainWindow):
         assert file_menu is not None
 
         open_action = QAction("&Open PDF", self)
-        open_action.setShortcuts(QKeySequence.Open)
+        open_action.setShortcuts(QKeySequence(Qt.CTRL + Qt.Key_O))  # type: ignore[attr-defined]
         open_action.setStatusTip("Open a new PDF file")
         open_action.triggered.connect(self._open_pdf_file)
         file_menu.addAction(open_action)
@@ -99,6 +103,26 @@ class MainWindow(QMainWindow):
         close_action.setStatusTip("Close the currently opened PDF file")
         close_action.triggered.connect(self._close_pdf)
         file_menu.addAction(close_action)
+
+        file_menu.addSeparator()
+
+        load_regions = QAction("&Load Regions", self)
+        load_regions.setShortcuts(QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_O))   # type: ignore[attr-defined]
+        load_regions.setStatusTip("Load the regions for the currently opened PDF from file")
+        load_regions.triggered.connect(self._load_regions)
+        file_menu.addAction(load_regions)
+
+        save_regions_as = QAction("Save Regions &As...", self)
+        save_regions_as.setShortcuts(QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_S))  # type: ignore[attr-defined]
+        save_regions_as.setStatusTip("Save all of the currently opened PDF file into a new regions file")
+        save_regions_as.triggered.connect(self._save_regions_as)
+        file_menu.addAction(save_regions_as)
+
+        save_regions = QAction("&Save Regions", self)
+        save_regions.setShortcuts(QKeySequence(Qt.CTRL + Qt.Key_S))  # type: ignore[attr-defined]
+        save_regions.setStatusTip("Save all regions of the currently opened PDF file")
+        save_regions.triggered.connect(self._save_regions)
+        file_menu.addAction(save_regions)
 
         file_menu.addSeparator()
 
@@ -446,6 +470,10 @@ class MainWindow(QMainWindow):
 
         if self._pdf:
             title += f" -- {self._pdf.name}"
+            if self._regions_filename:
+                title += f" -- {Path(self._regions_filename).name}"
+                if self._regions_modified:
+                    title += "*"
 
         self.setWindowTitle(title)
 
@@ -639,10 +667,12 @@ class MainWindow(QMainWindow):
             if self._pdf.page_count == 0:
                 raise ValueError("PDF has no pages")
 
-        except (FileNotFoundError, ValueError) as err:
+        except (FileNotFoundError, IOError, ValueError) as err:
             self._show_error(str(err), "Can't open PDF")
             return
 
+        self._regions_filename = None
+        self._regions_modified = False
         self._set_window_title()
 
         self._op_mode = OperationMode.NORMAL
@@ -655,6 +685,8 @@ class MainWindow(QMainWindow):
     def _close_pdf(self) -> None:
         self._pdf = None
 
+        self._regions_filename = None
+        self._regions_modified = False
         self._set_window_title()
 
         self._page_image = QPixmap()
@@ -673,6 +705,75 @@ class MainWindow(QMainWindow):
             return
 
         self._open_pdf(filename)
+
+    def _load_regions(self):
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        filename, _ = QFileDialog.getOpenFileName(self, "Open regions", filter="Region files (*.json)")
+        if not filename or filename == '':
+            return
+
+        try:
+            with open(filename, "r", encoding="utf-8") as file:
+                data = file.read()
+                self._pdf.deserialize_regions(data)
+        except Exception as err:
+            self._show_error(str(err), "Can't load regions")
+            return
+
+        self._regions_modified = False
+        self._regions_filename = filename
+        self._set_window_title()
+
+        self._current_region = -1
+        self._update_page()
+
+    def _save_regions_internal(self, filename) -> bool:
+        if not self._pdf:
+            return False
+
+        regions = self._pdf.serialize_regions()
+
+        try:
+            with open(filename, "w", encoding="utf-8") as file:
+                json.dump(regions, file, indent=4)
+        except Exception as err:
+            self._show_error(str(err), "Can't save regions")
+            return False
+
+        return True
+
+    def _save_regions_as(self):
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        dlg = QFileDialog(self, "Save regions", filter="Region files (*.json)")
+        dlg.setDefaultSuffix(".json")
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        if not dlg.exec_():
+            return
+
+        filename = dlg.selectedFiles()[0]
+        if not filename or filename == '':
+            return
+
+        if not self._save_regions_internal(filename):
+            return
+
+        self._regions_modified = False
+        self._regions_filename = filename
+        self._set_window_title()
+
+    def _save_regions(self):
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        if not self._regions_filename or not self._save_regions_internal(self._regions_filename):
+            return
+
+        self._regions_modified = False
+        self._set_window_title()
 
     def _first_page(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
@@ -750,6 +851,9 @@ class MainWindow(QMainWindow):
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
+        self._regions_modified = True
+        self._set_window_title()
+
         self._current_region = self._pdf.reorder_region(self._current_page, self._current_region, -1)
         self._update_page()
 
@@ -757,12 +861,18 @@ class MainWindow(QMainWindow):
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
+        self._regions_modified = True
+        self._set_window_title()
+
         self._current_region = self._pdf.reorder_region(self._current_page, self._current_region, 1)
         self._update_page()
 
     def _recalculate_regions(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
+
+        self._regions_modified = True
+        self._set_window_title()
 
         self._pdf.clear_regions(self._current_page)
         self._current_region = -1
@@ -772,6 +882,9 @@ class MainWindow(QMainWindow):
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
+        self._regions_modified = True
+        self._set_window_title()
+
         self._pdf.clear_all_regions()
         self._current_region = -1
         self._update_page()
@@ -779,6 +892,9 @@ class MainWindow(QMainWindow):
     def _clear_regions(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
+
+        self._regions_modified = True
+        self._set_window_title()
 
         self._pdf.mark_page_empty(self._current_page)
         self._current_region = -1
@@ -788,6 +904,9 @@ class MainWindow(QMainWindow):
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
+        self._regions_modified = True
+        self._set_window_title()
+
         self._pdf.mark_all_pages_empty()
         self._current_region = -1
         self._update_page()
@@ -795,6 +914,9 @@ class MainWindow(QMainWindow):
     def _delete_region(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
+
+        self._regions_modified = True
+        self._set_window_title()
 
         self._pdf.remove_region(self._current_page, self._current_region)
         self._current_region = -1
@@ -812,6 +934,9 @@ class MainWindow(QMainWindow):
     def _modify_region(self, _: int) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL or self._current_region < 0:
             return
+
+        self._regions_modified = True
+        self._set_window_title()
 
         left = self._cur_region_left.value()
         top = self._cur_region_top.value()
@@ -872,6 +997,8 @@ class MainWindow(QMainWindow):
 
             if left < right and top < bottom:
                 self._pdf.add_region(self._current_page, left, top, right, bottom)
+                self._regions_modified = True
+                self._set_window_title()
 
         self._op_mode = OperationMode.NORMAL
         self._new_region = QRect()
