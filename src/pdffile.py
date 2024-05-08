@@ -20,6 +20,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from pathlib import Path
 from typing import Optional
 
 import fitz
@@ -33,6 +34,8 @@ class PDFFile:
     """
 
     def __init__(self, filename: str) -> None:
+        self._name = Path(filename).name
+
         try:
             self._doc = fitz.open(filename)
         except fitz.FileNotFoundError as err:
@@ -43,6 +46,11 @@ class PDFFile:
             raise ValueError(err) from err
 
         self._regions: dict[int, list[fitz.IRect]] = {}
+
+    @property
+    def name(self) -> str:
+        """! The PDF's filename. """
+        return self._name
 
     @property
     def page_count(self) -> int:

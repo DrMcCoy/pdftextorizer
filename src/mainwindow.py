@@ -23,7 +23,6 @@
 import argparse
 import sys
 from enum import Enum
-from pathlib import Path
 from typing import Any, Optional
 
 from PyQt5.QtCore import QEvent, QPoint, QRect, QRectF, Qt
@@ -61,7 +60,6 @@ class MainWindow(QMainWindow):
 
         self._new_region = QRect()
 
-        self._pdf_filename: Optional[str] = None
         self._pdf: Optional[PDFFile] = None
 
         self._current_region: int = -1
@@ -446,8 +444,8 @@ class MainWindow(QMainWindow):
         info: dict[str, Any] = Util.get_project_info()
         title: str = f"{info['name']} {info['version']}"
 
-        if self._pdf_filename:
-            title += f" -- {Path(self._pdf_filename).name}"
+        if self._pdf:
+            title += f" -- {self._pdf.name}"
 
         self.setWindowTitle(title)
 
@@ -645,7 +643,6 @@ class MainWindow(QMainWindow):
             self._show_error(str(err), "Can't open PDF")
             return
 
-        self._pdf_filename = filename
         self._set_window_title()
 
         self._op_mode = OperationMode.NORMAL
@@ -657,7 +654,6 @@ class MainWindow(QMainWindow):
 
     def _close_pdf(self) -> None:
         self._pdf = None
-        self._pdf_filename = None
 
         self._set_window_title()
 
