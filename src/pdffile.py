@@ -89,7 +89,7 @@ class PDFFile:
         @param page    The page to remove the region from.
         @param region  The region to remove.
         """
-        if page < 0 or page >= self.page_count or region < 0 or region > len(self.get_regions(page) or []):
+        if page < 0 or page >= self.page_count or region < 0 or region >= len(self.get_regions(page) or []):
             return
 
         regions = self.get_regions(page)
@@ -132,7 +132,7 @@ class PDFFile:
         @param right   The region's new right coordinate.
         @param bottom  The region's new bottom coordinate.
         """
-        if page < 0 or page >= self.page_count or region < 0 or region > len(self.get_regions(page) or []):
+        if page < 0 or page >= self.page_count or region < 0 or region >= len(self.get_regions(page) or []):
             return
 
         p = self._doc.load_page(page)
