@@ -528,7 +528,7 @@ class MainWindow(QMainWindow):
             paint.setPen(Qt.green)  # type: ignore[attr-defined]
             self._draw_region(paint, regions[self._current_region], self._current_region)
 
-    def _update_page(self) -> None:
+    def _update_page(self, ignore_region_values: bool = False) -> None:
         if self._op_mode == OperationMode.NORMAL:
             QApplication.setOverrideCursor(Qt.WaitCursor)  # type: ignore[attr-defined]
 
@@ -548,7 +548,7 @@ class MainWindow(QMainWindow):
 
             self._page_view.setPixmap(QPixmap())
 
-        self._update_page_label()
+        self._update_page_label(ignore_region_values)
 
         if self._op_mode == OperationMode.NORMAL:
             QApplication.restoreOverrideCursor()
@@ -571,7 +571,7 @@ class MainWindow(QMainWindow):
         self._cur_region_height.setEnabled(False)
         self._cur_region_height.blockSignals(False)
 
-    def _update_page_label(self) -> None:
+    def _update_page_label(self, ignore_region_values: bool = False) -> None:
         if not self._pdf:
             self._page_label.setText("? / ?")
             self._region_label.setText("? / ?")
@@ -584,27 +584,28 @@ class MainWindow(QMainWindow):
         self._region_label.setText(f"{self._current_region + 1} / {len(regions)}")
 
         if self._current_region >= 0 and self._current_region < len(regions):
-            region = regions[self._current_region]
-            self._cur_region_left.blockSignals(True)
-            self._cur_region_left.setRange(0, self._page_image.width() - 1)
-            self._cur_region_left.setValue(region.x0)
-            self._cur_region_left.blockSignals(False)
-            self._cur_region_left.setEnabled(True)
-            self._cur_region_top.blockSignals(True)
-            self._cur_region_top.setRange(0, self._page_image.height() - 1)
-            self._cur_region_top.setValue(region.y0)
-            self._cur_region_top.blockSignals(False)
-            self._cur_region_top.setEnabled(True)
-            self._cur_region_width.blockSignals(True)
-            self._cur_region_width.setRange(0, self._page_image.width())
-            self._cur_region_width.setValue(region.x1 - region.x0 + 1)
-            self._cur_region_width.blockSignals(False)
-            self._cur_region_width.setEnabled(True)
-            self._cur_region_height.blockSignals(True)
-            self._cur_region_height.setRange(0, self._page_image.height() - 1)
-            self._cur_region_height.setValue(region.y1 - region.y0 + 1)
-            self._cur_region_height.blockSignals(False)
-            self._cur_region_height.setEnabled(True)
+            if not ignore_region_values:
+                region = regions[self._current_region]
+                self._cur_region_left.blockSignals(True)
+                self._cur_region_left.setRange(0, self._page_image.width() - 1)
+                self._cur_region_left.setValue(region.x0)
+                self._cur_region_left.blockSignals(False)
+                self._cur_region_left.setEnabled(True)
+                self._cur_region_top.blockSignals(True)
+                self._cur_region_top.setRange(0, self._page_image.height() - 1)
+                self._cur_region_top.setValue(region.y0)
+                self._cur_region_top.blockSignals(False)
+                self._cur_region_top.setEnabled(True)
+                self._cur_region_width.blockSignals(True)
+                self._cur_region_width.setRange(0, self._page_image.width())
+                self._cur_region_width.setValue(region.x1 - region.x0 + 1)
+                self._cur_region_width.blockSignals(False)
+                self._cur_region_width.setEnabled(True)
+                self._cur_region_height.blockSignals(True)
+                self._cur_region_height.setRange(0, self._page_image.height() - 1)
+                self._cur_region_height.setValue(region.y1 - region.y0 + 1)
+                self._cur_region_height.blockSignals(False)
+                self._cur_region_height.setEnabled(True)
         else:
             self._clear_region_values()
 
@@ -795,7 +796,7 @@ class MainWindow(QMainWindow):
         bottom = top + self._cur_region_height.value() - 1
 
         self._pdf.modify_region(self._current_page, self._current_region, left, top, right, bottom)
-        self._update_page()
+        self._update_page(ignore_region_values=True)
 
     def _get_page_rect(self) -> Optional[QRect]:
         if not self._pdf:
