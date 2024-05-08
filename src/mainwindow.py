@@ -90,15 +90,13 @@ class MainWindow(QMainWindow):
         file_menu = menu.addMenu("&File")
         assert file_menu is not None
 
-        open_action = QAction(style.standardIcon(QStyle.SP_DirOpenIcon),  # type: ignore[attr-defined]
-                              "&Open PDF", self)
+        open_action = QAction("&Open PDF", self)
         open_action.setShortcuts(QKeySequence.Open)
         open_action.setStatusTip("Open a new PDF file")
         open_action.triggered.connect(self._open_pdf_file)
         file_menu.addAction(open_action)
 
-        close_action = QAction(style.standardIcon(QStyle.SP_DirClosedIcon),  # type: ignore[attr-defined]
-                               "&Close PDF", self)
+        close_action = QAction("&Close PDF", self)
         close_action.setShortcuts(QKeySequence.Close)
         close_action.setStatusTip("Close the currently opened PDF file")
         close_action.triggered.connect(self._close_pdf)
