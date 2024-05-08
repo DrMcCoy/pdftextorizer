@@ -149,6 +149,45 @@ class PDFFile:
         assert regions is not None
         regions[region] = fitz.IRect(left, top, right, bottom)
 
+    def reorder_region(self, page: int, region: int, direction: int) -> int:
+        """! Reorder regions of a page, by moving a single region "up" or "down" the stack.
+
+        @param page       The page to reorder the regions of.
+        @param region     The region to move.
+        @param direction  The direction (and amount) to move the region.
+                          If < 0, this moves the region "up" as many places.
+                          If > 0, this moves the region "down" as many places.
+
+        @return The new index of the moved region.
+        """
+        if page < 0 or page >= self.page_count or region < 0 or region >= len(self.get_regions(page) or []):
+            return region
+
+        regions = self.get_regions(page)
+        assert regions is not None
+
+        # As long as we want and can move the region "up", swap it with its predecessor
+        while direction < 0:
+            if region == 0:
+                break
+
+            regions[region - 1], regions[region] = regions[region], regions[region - 1]
+
+            region -= 1
+            direction += 1
+
+        # As long as we want and can move the region "down", swap it with its successor
+        while direction > 0:
+            if region >= (len(regions) - 1):
+                break
+
+            regions[region + 1], regions[region] = regions[region], regions[region + 1]
+
+            region += 1
+            direction -= 1
+
+        return region
+
     def render_page(self, page: int) -> Optional[QImage]:
         """! Render a page into an image.
 

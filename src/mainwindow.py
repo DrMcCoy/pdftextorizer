@@ -313,6 +313,12 @@ class MainWindow(QMainWindow):
         region_label_frame.setLineWidth(2)
         region_label_frame.setMinimumWidth(80)
 
+        up_region_button = QPushButton(style.standardIcon(QStyle.SP_ArrowUp),  # type: ignore[attr-defined]
+                                       "", parent=self)
+        up_region_button.setStatusTip("Reorder regions by moving the current region \"up\"")
+        up_region_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        up_region_button.clicked.connect(self._up_region)
+
         first_region_button = QPushButton(style.standardIcon(QStyle.SP_MediaSkipBackward),  # type: ignore[attr-defined]
                                           "", parent=self)
         first_region_button.setStatusTip("First region")
@@ -337,14 +343,22 @@ class MainWindow(QMainWindow):
         last_region_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         last_region_button.clicked.connect(self._last_region)
 
+        down_region_button = QPushButton(style.standardIcon(QStyle.SP_ArrowDown),  # type: ignore[attr-defined]
+                                         "", parent=self)
+        down_region_button.setStatusTip("Reorder regions by moving the current region \"down\"")
+        down_region_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        down_region_button.clicked.connect(self._down_region)
+
         regions_layout = QHBoxLayout()
         regions_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
         regions_layout.setSpacing(0)
+        regions_layout.addWidget(up_region_button)
         regions_layout.addWidget(first_region_button)
         regions_layout.addWidget(prev_region_button)
         regions_layout.addWidget(region_label_frame)
         regions_layout.addWidget(next_region_button)
         regions_layout.addWidget(last_region_button)
+        regions_layout.addWidget(down_region_button)
 
         regions = QWidget()
         regions.setLayout(regions_layout)
@@ -735,6 +749,20 @@ class MainWindow(QMainWindow):
             return
 
         self._current_region = len(self._get_regions()) - 1
+        self._update_page()
+
+    def _up_region(self) -> None:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        self._current_region = self._pdf.reorder_region(self._current_page, self._current_region, -1)
+        self._update_page()
+
+    def _down_region(self) -> None:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        self._current_region = self._pdf.reorder_region(self._current_page, self._current_region, 1)
         self._update_page()
 
     def _recalculate_regions(self) -> None:
