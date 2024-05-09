@@ -341,6 +341,7 @@ class MainWindow(QMainWindow):
         up_region_button.setStatusTip("Reorder regions by moving the current region \"up\"")
         up_region_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         up_region_button.clicked.connect(self._up_region)
+        self._up_region_button = up_region_button
 
         first_region_button = QPushButton(style.standardIcon(QStyle.SP_MediaSkipBackward),  # type: ignore[attr-defined]
                                           "", parent=self)
@@ -371,6 +372,7 @@ class MainWindow(QMainWindow):
         down_region_button.setStatusTip("Reorder regions by moving the current region \"down\"")
         down_region_button.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         down_region_button.clicked.connect(self._down_region)
+        self._down_region_button = down_region_button
 
         regions_layout = QHBoxLayout()
         regions_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
@@ -668,6 +670,8 @@ class MainWindow(QMainWindow):
             self._cur_region_width.setEnabled(have_region)
             self._cur_region_height.setEnabled(have_region)
 
+        self._up_region_button.setEnabled(have_region)
+        self._down_region_button.setEnabled(have_region)
         self._delete_region_button.setEnabled(have_region)
         self._regions_buttons.setEnabled(len(self._get_regions()) > 0)
 
