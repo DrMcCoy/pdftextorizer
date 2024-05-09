@@ -28,6 +28,43 @@ can be grabbed and exported, in order. As a quick preview, only the current
 page can be either saved into a file or printed to standard out, and for the
 final pass, the whole PDF can be converted.
 
+Why?
+----
+
+PDFs with complex layouts, especially multiple columns, are notoriously
+difficult to copy text from. Often, copying grabs text from neighbouring
+columns and similar issues.
+
+All that and worse can be found in tabletop roleplaying PDFs, with their
+uber-complex layouts that include text flowing around images and styled
+statblocks. If you want to, for example, copy flavour text for ease of
+translation or having it readily available during a session, those issue
+make that pretty annoying.
+
+[PyMuPDF has example code to detect columns](https://artifex.com/blog/extract-text-from-a-multi-column-document-using-pymupdf-inpython),
+and while the results are promising, they're not perfect. You really want
+to fix the remaining issues before grabbing the text. And that's best
+done interactively in a GUI. Hence, PDF Textorizer.
+
+Keyboard shortcuts
+------------------
+
+PDF Textorizer offers global keyboard shortcuts for all the operations
+in the main menu.
+
+| Shortcut        | Command                   | Explanation                                                              |
+| --------------- | --------------------------|--------------------------------------------------------------------------|
+| Ctrl+O          | Open PDF                  | Open a new PDF file                                                      |
+| Ctrl+W          | Close PDF                 | Close the currently opened PDF file                                      |
+| Ctrl+Shift+O    | Load Regions              | Load a previously saved regions file                                     |
+| Ctrl+Shift+S    | Save Regions As...        | Save the current regions into a new file                                 |
+| Ctrl+S          | Save Regions              | Save the current regions to the current regions file                     |
+| Ctrl+P          | Convert Page to Text      | Convert all regions of the current page to text and print it to stdout   |
+| Ctrl+T          | Save Page to Text         | Convert all regions of the current page to text and write it into a file |
+| Ctrl+Shift-T    | Save All Pages to Text    | Convert all regions of all pages to text and write it into a file        |
+| Ctrl+Q          | Quit                      | Quit PDF Textorizer                                                      |
+| Shift+F1        | About PDF Textorizer      | Show an about box                                                        |
+
 Keyboard commands
 -----------------
 
