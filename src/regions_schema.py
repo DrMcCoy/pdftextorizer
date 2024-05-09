@@ -55,9 +55,24 @@ class RegionsSchema(Schema):
         checksum = fields.Str(required=True)
         pages = fields.Int(required=True)
 
+    class Margins(Schema):
+        """! Schema definition for the current margin settings. """
+
+        class Meta:  # pylint: disable=too-few-public-methods
+            """! Meta controls for the schema. """
+            unknown = EXCLUDE
+
+        left = fields.Int(required=True)
+        top = fields.Int(required=True)
+        right = fields.Int(required=True)
+        bottom = fields.Int(required=True)
+
+        ignore_images = fields.Bool(required=True)
+
     version = fields.Nested(Version, required=True)
 
     pdf = fields.Nested(PDFFile, required=True)
+    margins = fields.Nested(Margins, required=False)
     pages = fields.Dict(keys=fields.Int(),
                         values=fields.List(fields.List(fields.Int, required=True, validate=validate.Length(equal=4)),
                                            required=True),

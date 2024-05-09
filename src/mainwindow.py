@@ -806,7 +806,15 @@ class MainWindow(QMainWindow):
         try:
             with open(filename, "r", encoding="utf-8") as file:
                 data = file.read()
-                self._pdf.deserialize_regions(data)
+                deserialized = self._pdf.deserialize_regions(data)
+                if "margins" in deserialized:
+                    self._margin_left.setValue(deserialized["margins"]["left"])
+                    self._margin_top.setValue(deserialized["margins"]["top"])
+                    self._margin_right.setValue(deserialized["margins"]["right"])
+                    self._margin_bottom.setValue(deserialized["margins"]["bottom"])
+                    self._no_image_text.setCheckState(
+                        Qt.Checked if deserialized["margins"]["ignore_images"] else  # type: ignore[attr-defined]
+                        Qt.Unchecked)  # type: ignore[attr-defined]
         except Exception as err:
             self._show_error(str(err), "Can't load regions")
             return False
@@ -834,7 +842,17 @@ class MainWindow(QMainWindow):
         if not self._pdf:
             return False
 
-        regions = self._pdf.serialize_regions()
+        extra_data = {
+            'margins': {
+                'left': self._margin_left.value(),
+                'top': self._margin_top.value(),
+                'right': self._margin_right.value(),
+                'bottom': self._margin_bottom.value(),
+                'ignore_images': self._no_image_text.checkState() == Qt.Checked  # type: ignore[attr-defined]
+            }
+        }
+
+        regions = self._pdf.serialize_regions(extra_data)
 
         try:
             with open(filename, "w", encoding="utf-8") as file:

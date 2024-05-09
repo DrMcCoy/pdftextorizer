@@ -257,14 +257,16 @@ class PDFFile:
 
         return -1
 
-    def serialize_regions(self) -> dict[str, Any]:
+    def serialize_regions(self, extra_data: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         """! Serialize the regions of this PDF, with metadata, into a dictionary.
 
-        @return A dictorionary containing the serialized data.
+        @param extra_data  A dictionary containing extra data to serialize.
+
+        @return A dictionary containing the serialized data.
         """
 
         data = {
-            'version': {'major': 1, 'minor': 0, 'patch': 0},
+            'version': {'major': 1, 'minor': 0, 'patch': 1},
             'pdf': {
                 'name': self._name,
                 'checksum': self._checksum,
@@ -273,12 +275,14 @@ class PDFFile:
             'pages': self._regions
         }
 
-        return RegionsSchema().dump(data)
+        return RegionsSchema().dump((extra_data or {}) | data)
 
-    def deserialize_regions(self, data) -> None:
+    def deserialize_regions(self, data) -> dict[str, Any]:
         """! Deserialize the regions of this PDF from saved data.
 
         @param data  The data to deserialize from.
+
+        @return A dictionary containing the deserialized data.
         """
 
         schema = RegionsSchema()
@@ -298,6 +302,7 @@ class PDFFile:
             raise ValidationError(f"PDF page count mismatch ({self.page_count} vs {result['pdf']['pages']})")
 
         self._regions = result["pages"]
+        return result
 
     def _convert_region_to_text(self, page: int, region: fitz.IRect, concat_paragraphs: bool) -> str:
         p = self._doc.load_page(page)
