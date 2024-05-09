@@ -77,8 +77,11 @@ class MainWindow(QMainWindow):
 
         self.resize(1200, 800)
 
-        if self._args.file:
-            self._open_pdf(self._args.file)
+        if self._args.pdf_file:
+            if self._open_pdf(self._args.pdf_file):
+                if self._args.regions_file:
+                    self._regions_filename = self._args.regions_file
+                    self._set_window_title()
 
     def _create_menu(self) -> None:  # pylint: disable=too-many-statements,too-many-locals
         info: dict[str, Any] = Util.get_project_info()
@@ -519,8 +522,8 @@ class MainWindow(QMainWindow):
         if where:
             message = where + ": " + message
 
+        print(message, file=sys.stderr)
         if self.isHidden():
-            print(message, file=sys.stderr)
             return
 
         dlg = QMessageBox(self)
@@ -741,7 +744,7 @@ class MainWindow(QMainWindow):
         dlg.setText(Util.get_version_string(html=True))
         dlg.exec()
 
-    def _open_pdf(self, filename) -> None:
+    def _open_pdf(self, filename) -> bool:
         self._close_pdf()
 
         try:
@@ -751,7 +754,7 @@ class MainWindow(QMainWindow):
 
         except (FileNotFoundError, IOError, ValueError) as err:
             self._show_error(str(err), "Can't open PDF")
-            return
+            return False
 
         self._regions_filename = None
         self._regions_modified = False
@@ -762,6 +765,8 @@ class MainWindow(QMainWindow):
         self._current_page = 0
         self._current_region = -1
         self._update_all()
+
+        return True
 
     def _close_pdf(self) -> None:
         self._pdf = None
@@ -786,13 +791,9 @@ class MainWindow(QMainWindow):
 
         self._open_pdf(filename)
 
-    def _load_regions(self):
+    def _load_regions_internal(self, filename) -> bool:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
-            return
-
-        filename, _ = QFileDialog.getOpenFileName(self, "Open regions", filter="Region files (*.json)")
-        if not filename or filename == '':
-            return
+            return False
 
         try:
             with open(filename, "r", encoding="utf-8") as file:
@@ -800,6 +801,19 @@ class MainWindow(QMainWindow):
                 self._pdf.deserialize_regions(data)
         except Exception as err:
             self._show_error(str(err), "Can't load regions")
+            return False
+
+        return True
+
+    def _load_regions(self) -> None:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        filename, _ = QFileDialog.getOpenFileName(self, "Open regions", filter="Region files (*.json)")
+        if not filename or filename == '':
+            return
+
+        if not self._load_regions_internal(filename):
             return
 
         self._regions_modified = False
@@ -1283,3 +1297,14 @@ class MainWindow(QMainWindow):
             self._handle_viewport_move(event)
             return False
         return super().eventFilter(widget, event)
+
+    def showEvent(self, event):  # pylint: disable=invalid-name
+        """! Special initializing for the main window.
+        """
+
+        super().showEvent(event)
+        if self._regions_filename:
+            if self._load_regions_internal(self._regions_filename):
+                self._update_all()
+            else:
+                self._regions_filename = None

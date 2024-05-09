@@ -56,7 +56,8 @@ class PDFTextorizer:  # pylint: disable=too-few-public-methods
         parser.add_argument("-v", "--version", required=False, action="store_true",
                             help="print the version and exit")
 
-        parser.add_argument('file', nargs='?', help="PDF file to open")
+        parser.add_argument('pdf_file', nargs='?', help="PDF file to open")
+        parser.add_argument('regions_file', nargs='?', help="Regions file to load")
 
         args: argparse.Namespace = parser.parse_args()
 
