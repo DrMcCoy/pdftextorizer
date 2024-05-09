@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(save_page)
         self._action_save_page = save_page
 
-        save_all_pages = QAction("Save All Page to Text", self)
+        save_all_pages = QAction("Save All Pages to Text", self)
         save_all_pages.setShortcuts(QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_T))  # type: ignore[attr-defined]
         save_all_pages.setStatusTip("Convert all regions of all pages currently opened PDF to text "
                                     "and save it into a file")
