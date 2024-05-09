@@ -59,6 +59,7 @@ NOTE: These shortcuts only work when the page view has the focus, by, for
 | Page Down       | Move the selected region "down" in the stack |
 | Insert          | Add a new region                             |
 | Delete          | Remove the selected region                   |
+| R               | Redraw the selected region                   |
 
 Installation
 ------------

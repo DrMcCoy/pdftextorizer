@@ -42,6 +42,7 @@ class OperationMode(Enum):
     """
     NORMAL = 0
     ADD_REGION = 1
+    REDRAW_REGION = 2
 
 
 class MainWindow(QMainWindow):
@@ -472,10 +473,16 @@ class MainWindow(QMainWindow):
         add_region_button.setStatusTip("Add a new region")
         add_region_button.clicked.connect(self._add_region)
 
+        redraw_region_button = QPushButton("Redraw region")
+        redraw_region_button.setStatusTip("Modify the current region by drawing onto the page")
+        redraw_region_button.clicked.connect(self._redraw_region)
+        self._redraw_region_button = redraw_region_button
+
         add_delete_layout = QGridLayout()
 
         add_delete_layout.addWidget(add_region_button, 0, 0)
         add_delete_layout.addWidget(delete_region_button, 0, 1)
+        add_delete_layout.addWidget(redraw_region_button, 1, 0)
 
         add_delete = QWidget()
         add_delete.setLayout(add_delete_layout)
@@ -707,6 +714,7 @@ class MainWindow(QMainWindow):
         self._up_region_button.setEnabled(have_region)
         self._down_region_button.setEnabled(have_region)
         self._delete_region_button.setEnabled(have_region)
+        self._redraw_region_button.setEnabled(have_region)
 
         have_regions = len(self._get_regions()) > 0
         self._regions_buttons.setEnabled(have_regions)
@@ -1034,6 +1042,14 @@ class MainWindow(QMainWindow):
         self._new_region = QRect()
         self._current_region = -1
 
+    def _redraw_region(self) -> None:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL or self._current_region < 0:
+            return
+
+        QApplication.setOverrideCursor(Qt.CrossCursor)  # type: ignore[attr-defined]
+        self._op_mode = OperationMode.REDRAW_REGION
+        self._new_region = QRect()
+
     def _modify_region(self, _: int) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL or self._current_region < 0:
             return
@@ -1072,31 +1088,35 @@ class MainWindow(QMainWindow):
 
         return page_x, page_y
 
+    def _fix_new_region(self) -> tuple[int, int, int, int]:
+        offset_x = int((self._page_view.width() - self._viewport_scaled_image.width()) / 2)
+        offset_y = int((self._page_view.height() - self._viewport_scaled_image.height()) / 2)
+        scale_x = self._page_image.width() / self._viewport_scaled_image.width()
+        scale_y = self._page_image.height() / self._viewport_scaled_image.height()
+
+        left = int((self._new_region.left() - offset_x) * scale_x)
+        top = int((self._new_region.top() - offset_y) * scale_y)
+        right = int((self._new_region.right() - offset_x) * scale_x)
+        bottom = int((self._new_region.bottom() - offset_y) * scale_y)
+
+        if left > right:
+            left, right = right, left
+        if top > bottom:
+            top, bottom = bottom, top
+
+        left = max(0, min(left, self._page_image.width() - 1))
+        right = max(0, min(right, self._page_image.width() - 1))
+        top = max(0, min(top, self._page_image.height() - 1))
+        bottom = max(0, min(bottom, self._page_image.height() - 1))
+
+        return left, right, top, bottom
+
     def _add_region_end(self, add_created_region: bool):
         if not self._pdf:
             return
 
         if add_created_region:
-            offset_x = int((self._page_view.width() - self._viewport_scaled_image.width()) / 2)
-            offset_y = int((self._page_view.height() - self._viewport_scaled_image.height()) / 2)
-            scale_x = self._page_image.width() / self._viewport_scaled_image.width()
-            scale_y = self._page_image.height() / self._viewport_scaled_image.height()
-
-            left = int((self._new_region.left() - offset_x) * scale_x)
-            top = int((self._new_region.top() - offset_y) * scale_y)
-            right = int((self._new_region.right() - offset_x) * scale_x)
-            bottom = int((self._new_region.bottom() - offset_y) * scale_y)
-
-            if left > right:
-                left, right = right, left
-            if top > bottom:
-                top, bottom = bottom, top
-
-            left = max(0, min(left, self._page_image.width() - 1))
-            right = max(0, min(right, self._page_image.width() - 1))
-            top = max(0, min(top, self._page_image.height() - 1))
-            bottom = max(0, min(bottom, self._page_image.height() - 1))
-
+            left, right, top, bottom = self._fix_new_region()
             if left < right and top < bottom:
                 self._pdf.add_region(self._current_page, left, top, right, bottom)
                 self._regions_modified = True
@@ -1104,6 +1124,21 @@ class MainWindow(QMainWindow):
         self._op_mode = OperationMode.NORMAL
         self._new_region = QRect()
         self._current_region = -1
+        self._update_all()
+        QApplication.restoreOverrideCursor()
+
+    def _redraw_region_end(self, use_created_region: bool):
+        if not self._pdf:
+            return
+
+        if use_created_region:
+            left, right, top, bottom = self._fix_new_region()
+            if left < right and top < bottom:
+                self._pdf.modify_region(self._current_page, self._current_region, left, top, right, bottom)
+                self._regions_modified = True
+
+        self._op_mode = OperationMode.NORMAL
+        self._new_region = QRect()
         self._update_all()
         QApplication.restoreOverrideCursor()
 
@@ -1234,6 +1269,8 @@ class MainWindow(QMainWindow):
             self._add_region()
         elif MainWindow._check_key_event(event, Qt.Key_Delete):  # type: ignore[attr-defined]
             self._delete_region()
+        elif MainWindow._check_key_event(event, Qt.Key_R):  # type: ignore[attr-defined]
+            self._redraw_region()
 
     def _handle_viewport_click(self, event: QMouseEvent):
         if not self._pdf:
@@ -1264,9 +1301,27 @@ class MainWindow(QMainWindow):
 
             return
 
+        if (self._op_mode == OperationMode.REDRAW_REGION and
+                event.type() == QEvent.MouseButtonPress):  # type: ignore[attr-defined]
+            if event.button() == Qt.RightButton:  # type: ignore[attr-defined]
+                self._redraw_region_end(False)
+                return
+
+            if event.button() == Qt.LeftButton:  # type: ignore[attr-defined]
+                if self._new_region.isNull():
+                    self._new_region = QRect(event.x(), event.y(), 1, 1)
+                self._update_all()
+
+            return
+
         if (self._op_mode == OperationMode.ADD_REGION and
                 event.type() == QEvent.MouseButtonRelease):  # type: ignore[attr-defined]
             self._add_region_end(True)
+            return
+
+        if (self._op_mode == OperationMode.REDRAW_REGION and
+                event.type() == QEvent.MouseButtonRelease):  # type: ignore[attr-defined]
+            self._redraw_region_end(True)
             return
 
     def _handle_viewport_move(self, event: QMouseEvent):
@@ -1274,6 +1329,9 @@ class MainWindow(QMainWindow):
             return
 
         if self._op_mode == OperationMode.ADD_REGION and not self._new_region.isNull():
+            self._new_region.setBottomRight(QPoint(event.x(), event.y()))
+            self._update_all()
+        if self._op_mode == OperationMode.REDRAW_REGION and not self._new_region.isNull():
             self._new_region.setBottomRight(QPoint(event.x(), event.y()))
             self._update_all()
 
