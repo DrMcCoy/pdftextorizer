@@ -598,15 +598,19 @@ class MainWindow(QMainWindow):
 
     def _clear_region_values(self):
         self._cur_region_left.blockSignals(True)
+        self._cur_region_left.setRange(0, 0)
         self._cur_region_left.setValue(0)
         self._cur_region_left.blockSignals(False)
         self._cur_region_top.blockSignals(True)
+        self._cur_region_top.setRange(0, 0)
         self._cur_region_top.setValue(0)
         self._cur_region_top.blockSignals(False)
         self._cur_region_width.blockSignals(True)
+        self._cur_region_width.setRange(0, 0)
         self._cur_region_width.setValue(0)
         self._cur_region_width.blockSignals(False)
         self._cur_region_height.blockSignals(True)
+        self._cur_region_height.setRange(0, 0)
         self._cur_region_height.setValue(0)
         self._cur_region_height.blockSignals(False)
 
@@ -1046,15 +1050,58 @@ class MainWindow(QMainWindow):
         self._update_all()
         QApplication.restoreOverrideCursor()
 
+    @staticmethod
+    def _check_key_event(event: QKeyEvent, key, modifiers=Qt.NoModifier) -> bool:  # type: ignore[attr-defined]
+        return event.modifiers() == modifiers and event.key() == key
+
     def _handle_viewport_key(self, event: QKeyEvent):
-        if event.key() == Qt.Key_K:  # type: ignore[attr-defined]
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        if MainWindow._check_key_event(event, Qt.Key_K):  # type: ignore[attr-defined]
             self._next_page()
-        elif event.key() == Qt.Key_L:  # type: ignore[attr-defined]
+        elif MainWindow._check_key_event(event, Qt.Key_L):  # type: ignore[attr-defined]
             self._last_page()
-        elif event.key() == Qt.Key_J:  # type: ignore[attr-defined]
+        elif MainWindow._check_key_event(event, Qt.Key_J):  # type: ignore[attr-defined]
             self._previous_page()
-        elif event.key() == Qt.Key_H:  # type: ignore[attr-defined]
+        elif MainWindow._check_key_event(event, Qt.Key_H):  # type: ignore[attr-defined]
             self._first_page()
+        elif MainWindow._check_key_event(event, Qt.Key_H):  # type: ignore[attr-defined]
+            self._first_page()
+        elif MainWindow._check_key_event(event, Qt.Key_K, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._next_region()
+        elif MainWindow._check_key_event(event, Qt.Key_L, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._last_region()
+        elif MainWindow._check_key_event(event, Qt.Key_J, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._prev_region()
+        elif MainWindow._check_key_event(event, Qt.Key_H, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._first_region()
+        elif MainWindow._check_key_event(event, Qt.Key_H, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._first_region()
+        elif MainWindow._check_key_event(event, Qt.Key_Left):  # type: ignore[attr-defined]
+            self._cur_region_left.setValue(self._cur_region_left.value() - 1)
+        elif MainWindow._check_key_event(event, Qt.Key_Right):  # type: ignore[attr-defined]
+            self._cur_region_left.setValue(self._cur_region_left.value() + 1)
+        elif MainWindow._check_key_event(event, Qt.Key_Up):  # type: ignore[attr-defined]
+            self._cur_region_top.setValue(self._cur_region_top.value() - 1)
+        elif MainWindow._check_key_event(event, Qt.Key_Down):  # type: ignore[attr-defined]
+            self._cur_region_top.setValue(self._cur_region_top.value() + 1)
+        elif MainWindow._check_key_event(event, Qt.Key_Left, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._cur_region_width.setValue(self._cur_region_width.value() - 1)
+        elif MainWindow._check_key_event(event, Qt.Key_Right, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._cur_region_width.setValue(self._cur_region_width.value() + 1)
+        elif MainWindow._check_key_event(event, Qt.Key_Up, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._cur_region_height.setValue(self._cur_region_height.value() - 1)
+        elif MainWindow._check_key_event(event, Qt.Key_Down, Qt.ShiftModifier):  # type: ignore[attr-defined]
+            self._cur_region_height.setValue(self._cur_region_height.value() + 1)
+        elif MainWindow._check_key_event(event, Qt.Key_PageUp):  # type: ignore[attr-defined]
+            self._up_region()
+        elif MainWindow._check_key_event(event, Qt.Key_PageDown):  # type: ignore[attr-defined]
+            self._down_region()
+        elif MainWindow._check_key_event(event, Qt.Key_Insert):  # type: ignore[attr-defined]
+            self._add_region()
+        elif MainWindow._check_key_event(event, Qt.Key_Delete):  # type: ignore[attr-defined]
+            self._delete_region()
 
     def _handle_viewport_click(self, event: QMouseEvent):
         if not self._pdf:
