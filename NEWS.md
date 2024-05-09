@@ -1,3 +1,11 @@
+Changes in PDF Textorizer version 1.1.0
+=======================================
+
+PDF Textorizer now supports modifying regions by "redrawing" them, i.e.
+drawing the modified new rectangle onto the page. Also, now the margin
+settings are also saved to the regions file.
+
+
 Changes in PDF Textorizer version 1.0.0
 =======================================
 
