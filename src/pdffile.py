@@ -298,3 +298,51 @@ class PDFFile:
             raise ValidationError(f"PDF page count mismatch ({self.page_count} vs {result['pdf']['pages']})")
 
         self._regions = result["pages"]
+
+    def _convert_region_to_text(self, page: int, region: fitz.IRect, concat_paragraphs: bool) -> str:
+        p = self._doc.load_page(page)
+
+        text = p.get_text(clip=region, sort=True)
+        if concat_paragraphs:
+            text = text.replace(" \n", " ")
+
+        return text
+
+    def convert_region_to_text(self, page: int, region: int, concat_paragraphs: bool = False) -> str:
+        """! Convert a single region of a single page to text.
+
+        @param page               The page to look at.
+        @param region             The region to convert.
+        @param concat_paragraphs  Autodetect when a line end is not a paragraph end and remove the line end,
+                                  concatting paragraphs into single lines.
+
+        @return The text contained in the region as string.
+        """
+        if page < 0 or page >= self.page_count or region < 0 or region >= len(self.get_regions(page) or []):
+            return ""
+
+        regions = self.get_regions(page)
+        assert regions is not None
+
+        return self._convert_region_to_text(page, regions[region], concat_paragraphs)
+
+    def convert_page_to_text(self, page: int, concat_paragraphs: bool = False) -> str:
+        """! Convert a single page to text, region by region.
+
+        @param page               The page to look at.
+        @param concat_paragraphs  Autodetect when a line end is not a paragraph end and remove the line end,
+                                  concatting paragraphs into single lines.
+
+        @return The text contained in the page as string.
+        """
+
+        if page < 0 or page >= self.page_count:
+            return ""
+
+        text = ""
+
+        regions = self.get_regions(page) or []
+        for region in regions:
+            text += self._convert_region_to_text(page, region, concat_paragraphs) + "\n"
+
+        return text

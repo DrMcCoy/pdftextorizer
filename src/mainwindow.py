@@ -30,8 +30,8 @@ from typing import Any, Optional
 from PyQt5.QtCore import QEvent, QPoint, QRect, QRectF, Qt
 from PyQt5.QtGui import QFont, QImage, QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPalette, QPixmap
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFileDialog, QFrame, QGridLayout,
-                             QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton, QSizePolicy, QSpinBox,
-                             QStatusBar, QStyle, QVBoxLayout, QWidget)
+                             QHBoxLayout, QLabel, QMainWindow, QMessageBox, QProgressDialog, QPushButton, QSizePolicy,
+                             QSpinBox, QStatusBar, QStyle, QVBoxLayout, QWidget)
 
 from pdffile import PDFFile
 from util import Util
@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
         if self._args.file:
             self._open_pdf(self._args.file)
 
-    def _create_menu(self) -> None:
+    def _create_menu(self) -> None:  # pylint: disable=too-many-statements,too-many-locals
         info: dict[str, Any] = Util.get_project_info()
 
         style = self.style()
@@ -126,6 +126,30 @@ class MainWindow(QMainWindow):
         save_regions.triggered.connect(self._save_regions)
         file_menu.addAction(save_regions)
         self._action_save_regions = save_regions
+
+        file_menu.addSeparator()
+
+        convert_page = QAction("Convert &Page to Text", self)
+        convert_page.setShortcuts(QKeySequence(Qt.CTRL + Qt.Key_P))  # type: ignore[attr-defined]
+        convert_page.setStatusTip("Convert all regions of the current page to text and print it to stdout")
+        convert_page.triggered.connect(self._convert_page_to_text_print)
+        file_menu.addAction(convert_page)
+        self._action_convert_page = convert_page
+
+        save_page = QAction("Save Page to Text", self)
+        save_page.setShortcuts(QKeySequence(Qt.CTRL + Qt.Key_T))  # type: ignore[attr-defined]
+        save_page.setStatusTip("Convert all regions of the current page to text and save it into a file")
+        save_page.triggered.connect(self._convert_page_to_text_file)
+        file_menu.addAction(save_page)
+        self._action_save_page = save_page
+
+        save_all_pages = QAction("Save All Page to Text", self)
+        save_all_pages.setShortcuts(QKeySequence(Qt.CTRL + Qt.SHIFT + Qt.Key_T))  # type: ignore[attr-defined]
+        save_all_pages.setStatusTip("Convert all regions of all pages currently opened PDF to text "
+                                    "and save it into a file")
+        save_all_pages.triggered.connect(self._convert_all_pages_to_text_file)
+        file_menu.addAction(save_all_pages)
+        self._action_save_all_pages = save_all_pages
 
         file_menu.addSeparator()
 
@@ -658,6 +682,9 @@ class MainWindow(QMainWindow):
             self._action_load_regions.setEnabled(False)
             self._action_save_regions.setEnabled(False)
             self._action_save_regions_as.setEnabled(False)
+            self._action_convert_page.setEnabled(False)
+            self._action_save_page.setEnabled(False)
+            self._action_save_all_pages.setEnabled(False)
             self._cur_region_left.setEnabled(False)
             self._cur_region_top.setEnabled(False)
             self._cur_region_width.setEnabled(False)
@@ -677,7 +704,12 @@ class MainWindow(QMainWindow):
         self._up_region_button.setEnabled(have_region)
         self._down_region_button.setEnabled(have_region)
         self._delete_region_button.setEnabled(have_region)
-        self._regions_buttons.setEnabled(len(self._get_regions()) > 0)
+
+        have_regions = len(self._get_regions()) > 0
+        self._regions_buttons.setEnabled(have_regions)
+        self._action_convert_page.setEnabled(have_regions)
+        self._action_save_page.setEnabled(have_regions)
+        self._action_save_all_pages.setEnabled(True)
 
         self._action_load_regions.setEnabled(True)
         self._action_save_regions_as.setEnabled(True)
@@ -1060,6 +1092,81 @@ class MainWindow(QMainWindow):
         self._current_region = -1
         self._update_all()
         QApplication.restoreOverrideCursor()
+
+    def _convert_page_to_text_print(self) -> None:
+        if not self._pdf:
+            return
+
+        text = self._pdf.convert_page_to_text(self._current_page, concat_paragraphs=True)
+        print(f"---\n{text}")
+
+    def _convert_page_to_text_file(self) -> None:
+        if not self._pdf:
+            return
+
+        dlg = QFileDialog(self, "Save page to text", filter="Text files (*.txt)")
+        dlg.setDefaultSuffix(".txt")
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        if not dlg.exec_():
+            return
+
+        filename = dlg.selectedFiles()[0]
+        if not filename or filename == '':
+            return
+
+        text = self._pdf.convert_page_to_text(self._current_page, concat_paragraphs=True)
+
+        try:
+            with open(filename, "w", encoding="utf-8") as file:
+                file.write(text)
+        except Exception as err:
+            self._show_error(str(err), "Can't save text")
+
+    def _convert_all_pages_to_text_file_internal(self, file) -> None:
+        if not self._pdf:
+            return
+
+        progress = QProgressDialog(f"Converting {self._pdf.page_count} page(s)...", "Abort Conversion",
+                                   0, self._pdf.page_count, self)
+        progress.setWindowModality(Qt.WindowModal)  # type: ignore[attr-defined]
+        progress.setWindowTitle("Converting")
+        progress.setMinimumDuration(0)
+
+        for page in range(self._pdf.page_count):
+            progress.setValue(page)
+            if progress.wasCanceled():
+                break
+
+            text = self._pdf.convert_page_to_text(page, concat_paragraphs=True)
+            file.write(text)
+
+        # When pressing cancel, the dialog already vanished by itself, at least on Linux. This is contrary to
+        # the documentation and might by a Qt/PyQt bug. It also might not happen that way on other platforms.
+        # So we're hedging our bets a bit here by checking if the dialog is still shown before setting it to
+        # its final value to make it go away.
+
+        if not progress.isHidden():
+            progress.setValue(self._pdf.page_count)
+
+    def _convert_all_pages_to_text_file(self) -> None:
+        if not self._pdf:
+            return
+
+        dlg = QFileDialog(self, "Save all pages to text", filter="Text files (*.txt)")
+        dlg.setDefaultSuffix(".txt")
+        dlg.setAcceptMode(QFileDialog.AcceptSave)
+        if not dlg.exec_():
+            return
+
+        filename = dlg.selectedFiles()[0]
+        if not filename or filename == '':
+            return
+
+        try:
+            with open(filename, "w", encoding="utf-8") as file:
+                self._convert_all_pages_to_text_file_internal(file)
+        except Exception as err:
+            self._show_error(str(err), "Can't save text")
 
     @staticmethod
     def _check_key_event(event: QKeyEvent, key, modifiers=Qt.NoModifier) -> bool:  # type: ignore[attr-defined]
