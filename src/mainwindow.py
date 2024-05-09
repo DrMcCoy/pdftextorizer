@@ -579,7 +579,7 @@ class MainWindow(QMainWindow):
             paint.setPen(Qt.green)  # type: ignore[attr-defined]
             self._draw_region(paint, regions[self._current_region], self._current_region)
 
-    def _update_page(self, ignore_region_values: bool = False) -> None:
+    def _update_page(self) -> None:
         if self._pdf:
             page_image = self._pdf.render_page(self._current_page) or QImage()
             self._page_image = QPixmap.fromImage(page_image)
@@ -614,7 +614,7 @@ class MainWindow(QMainWindow):
         self._cur_region_height.setValue(0)
         self._cur_region_height.blockSignals(False)
 
-    def _update_page_labels(self, ignore_region_values: bool = False) -> None:
+    def _update_page_labels(self) -> None:
         if not self._pdf:
             self._page_label.setText("? / ?")
             return
