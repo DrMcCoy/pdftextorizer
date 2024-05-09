@@ -1,2 +1,10 @@
+Thursday, 2024-05-09 (Version 1.0.0)
+	- Implemented loading PDFs
+	- Implemented navigating through the PDF
+	- Implemented detecting text regions
+	- Implemented modifying text regions
+	- Implemented saving/loading text regions
+	- Implemented converting PDFs to text
+
 Sunday, 2024-05-05 (Version 0.0.0)
 	- Started the PDF Textorizer project
