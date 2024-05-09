@@ -866,21 +866,25 @@ class MainWindow(QMainWindow):
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
+        old_region = self._current_region
         self._current_region = 0
         if self._current_region >= len(self._get_regions()):
             self._current_region = len(self._get_regions()) - 1
 
-        self._update_all()
+        if old_region != self._current_region:
+            self._update_all()
 
     def _next_region(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
+        old_region = self._current_region
         self._current_region += 1
         if self._current_region >= len(self._get_regions()):
             self._current_region = len(self._get_regions()) - 1
 
-        self._update_all()
+        if old_region != self._current_region:
+            self._update_all()
 
     def _prev_region(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL or self._current_region == 0:
@@ -897,26 +901,33 @@ class MainWindow(QMainWindow):
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
+        old_region = self._current_region
         self._current_region = len(self._get_regions()) - 1
-        self._update_all()
+
+        if old_region != self._current_region:
+            self._update_all()
 
     def _up_region(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
-        self._regions_modified = True
-
+        old_region = self._current_region
         self._current_region = self._pdf.reorder_region(self._current_page, self._current_region, -1)
-        self._update_all()
+
+        if old_region != self._current_region:
+            self._regions_modified = True
+            self._update_all()
 
     def _down_region(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
             return
 
-        self._regions_modified = True
-
+        old_region = self._current_region
         self._current_region = self._pdf.reorder_region(self._current_page, self._current_region, 1)
-        self._update_all()
+
+        if old_region != self._current_region:
+            self._regions_modified = True
+            self._update_all()
 
     def _recalculate_regions(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
@@ -1110,8 +1121,12 @@ class MainWindow(QMainWindow):
         if (self._op_mode == OperationMode.NORMAL and
                 event.type() == QEvent.MouseButtonRelease):  # type: ignore[attr-defined]
             x, y = self._get_page_coords(event.x(), event.y())
+
+            old_region = self._current_region
             self._current_region = self._pdf.find_region(self._current_page, x, y)
-            self._update_all()
+
+            if old_region != self._current_region:
+                self._update_all()
             return
 
         if (self._op_mode == OperationMode.ADD_REGION and
