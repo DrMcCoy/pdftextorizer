@@ -139,3 +139,24 @@ PYTHON=python3 make run arg="-h"
 This would install PDF Textorizer into a virtualenv and run using "python3" as
 the Python environment, with the command line parameter "-h" (thus showing
 the help text).
+
+
+Command line usage
+------------------
+
+```
+usage: pdftextorizer [-h] [-v] [-p PAGE] [pdf_file] [regions_file]
+
+pdftextorizer -- Interactively extract text from multi-column PDFs
+
+positional arguments:
+  pdf_file              PDF file to open
+  regions_file          Regions file to load
+
+options:
+  -h, --help            Show this help message and exit
+  -v, --version         Print the version and exit
+
+PDF arguments:
+  -p PAGE, --page PAGE  Open the PDF file directly on this page
+```
