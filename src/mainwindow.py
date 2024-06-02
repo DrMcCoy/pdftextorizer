@@ -83,6 +83,8 @@ class MainWindow(QMainWindow):
                 if self._args.regions_file:
                     self._regions_filename = self._args.regions_file
                     self._set_window_title()
+                if self._args.page is not None:
+                    self._go_to_page(self._args.page)
 
     def _create_menu(self) -> None:  # pylint: disable=too-many-statements,too-many-locals
         info: dict[str, Any] = Util.get_project_info()
@@ -895,6 +897,17 @@ class MainWindow(QMainWindow):
         self._regions_modified = False
         self._set_window_title()
         self._update_enabled()
+
+    def _go_to_page(self, page: int) -> None:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        if page < 0 or page >= self._pdf.page_count:
+            return
+
+        self._current_page = page
+        self._current_region = -1
+        self._update_all()
 
     def _first_page(self) -> None:
         if not self._pdf or self._op_mode != OperationMode.NORMAL:
