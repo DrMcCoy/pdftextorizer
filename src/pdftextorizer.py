@@ -52,9 +52,9 @@ class PDFTextorizer:  # pylint: disable=too-few-public-methods
         # Note: we're setting required to False even on required arguments and do the checks
         # ourselves below. We're doing that because we want more dynamic --version behaviour
 
-        parser.add_argument('-h', '--help', action="help", help='show this help message and exit')
+        parser.add_argument('-h', '--help', action="help", help='Show this help message and exit')
         parser.add_argument("-v", "--version", required=False, action="store_true",
-                            help="print the version and exit")
+                            help="Print the version and exit")
 
         parser.add_argument('pdf_file', nargs='?', help="PDF file to open")
         parser.add_argument('regions_file', nargs='?', help="Regions file to load")
