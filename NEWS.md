@@ -1,3 +1,12 @@
+Changes in PDF Textorizer version 1.2.0
+=======================================
+
+PDF Textorizer now makes going to a specific page easier. No need to
+page through the whole PDF from the start until the wanted page anymore.
+Instead, you can now specify a starting page with a command line parameter;
+and also modify the current page number by clicking into the page label.
+
+
 Changes in PDF Textorizer version 1.1.0
 =======================================
 
