@@ -31,7 +31,7 @@ from PyQt5.QtCore import QEvent, QPoint, QRect, QRectF, Qt
 from PyQt5.QtGui import QFont, QImage, QKeyEvent, QKeySequence, QMouseEvent, QPainter, QPalette, QPixmap
 from PyQt5.QtWidgets import (QAction, QApplication, QCheckBox, QDockWidget, QFileDialog, QFrame, QGridLayout,
                              QHBoxLayout, QLabel, QMainWindow, QMessageBox, QProgressDialog, QPushButton, QSizePolicy,
-                             QSpinBox, QStatusBar, QStyle, QVBoxLayout, QWidget)
+                             QSpinBox, QStackedWidget, QStatusBar, QStyle, QVBoxLayout, QWidget)
 
 from pdffile import PDFFile
 from util import Util
@@ -43,6 +43,40 @@ class OperationMode(Enum):
     NORMAL = 0
     ADD_REGION = 1
     REDRAW_REGION = 2
+
+
+class PageNumberLabel(QLabel):
+    """! The label showing the current page.
+    """
+
+    def __init__(self, page_stack, index_other: int) -> None:
+        super().__init__()
+        self._page_stack = page_stack
+        self._index_other = index_other
+
+    def mouseReleaseEvent(self, _):  # pylint: disable=invalid-name
+        """! Mouse button release event handler.
+        """
+
+        self._page_stack.setCurrentIndex(self._index_other)
+        self._page_stack.currentWidget().setFocus()
+
+
+class PageNumberEdit(QSpinBox):
+    """! The edit box showing and allowing to modify the current page.
+    """
+
+    def __init__(self, page_stack, index_other: int) -> None:
+        super().__init__()
+        self._page_stack = page_stack
+        self._index_other = index_other
+
+    def focusOutEvent(self, event):  # pylint: disable=invalid-name
+        """! Focus out event handler.
+        """
+
+        self._page_stack.setCurrentIndex(self._index_other)
+        super().focusOutEvent(event)
 
 
 class MainWindow(QMainWindow):
@@ -186,14 +220,26 @@ class MainWindow(QMainWindow):
         dock.setTitleBarWidget(QWidget(None))
         dock.setMinimumSize(320, 1)
 
-        self._page_label = QLabel()
+        self._page_stack = QStackedWidget()
+
+        self._page_label = PageNumberLabel(self._page_stack, 1)
         self._page_label.setText("")
         self._page_label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         self._page_label.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
 
+        self._page_edit = PageNumberEdit(self._page_stack, 0)
+        self._page_edit.setRange(0, 0)
+        self._page_edit.setValue(0)
+        self._page_edit.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        self._page_edit.valueChanged.connect(self._modify_page_edit)
+
+        self._page_stack.addWidget(self._page_label)
+        self._page_stack.addWidget(self._page_edit)
+        self._page_stack.setCurrentWidget(self._page_label)
+
         page_label_layout = QVBoxLayout()
         page_label_layout.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
-        page_label_layout.addWidget(self._page_label)
+        page_label_layout.addWidget(self._page_stack)
 
         page_label_frame = QFrame()
         page_label_frame.setLayout(page_label_layout)
@@ -657,6 +703,11 @@ class MainWindow(QMainWindow):
 
         self._page_label.setText(f"{self._current_page + 1} / {self._pdf.page_count}")
 
+        self._page_edit.blockSignals(True)
+        self._page_edit.setRange(1, self._pdf.page_count)
+        self._page_edit.setValue(self._current_page + 1)
+        self._page_edit.blockSignals(False)
+
     def _update_region_labels(self, ignore_region_values: bool = False) -> None:
         if not self._pdf:
             self._region_label.setText("? / ?")
@@ -1094,6 +1145,12 @@ class MainWindow(QMainWindow):
 
         self._pdf.modify_region(self._current_page, self._current_region, left, top, right, bottom)
         self._update_all(ignore_region_values=True)
+
+    def _modify_page_edit(self, _: int) -> None:
+        if not self._pdf or self._op_mode != OperationMode.NORMAL:
+            return
+
+        self._go_to_page(self._page_edit.value() - 1)
 
     def _get_page_rect(self) -> Optional[QRect]:
         if not self._pdf:
